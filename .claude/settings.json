@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --prefix /f/Code/zhengyuntai18/frontend install -D unplugin-auto-import unplugin-vue-components)",
+      "Bash(npm --prefix /f/Code/zhengyuntai18/frontend run build)",
+      "Bash(curl -s http://localhost:3000)"
+    ]
+  }
+}
