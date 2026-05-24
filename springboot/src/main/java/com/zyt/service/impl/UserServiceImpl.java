@@ -41,22 +41,19 @@ public class UserServiceImpl implements UserService {
     // token: —— accessToken 存储，30min TTL
     // refresh_token: —— refreshToken 存储，7天 TTL
     // email_code: —— 邮箱验证码存储，5min TTL
-    // captcha: —— 图形验证码存储，2min TTL
+    // captcha: —— 图形验证码存储（仅登录使用），1min TTL
     private static final String TOKEN_PREFIX = "token:";
     private static final String REFRESH_TOKEN_PREFIX = "refresh_token:";
     private static final String EMAIL_CODE_PREFIX = "email_code:";
     private static final String CAPTCHA_PREFIX = "captcha:";
 
     /**
-     * 生成图形验证码
-     *
-     * @return Map 包含 captchaId 和 base64 图片
+     * 生成图形验证码（仅登录使用）
      */
     @Override
     public Map<String, String> generateCaptcha() {
         CaptchaUtil.CaptchaResult result = CaptchaUtil.generate();
         String captchaId = UUID.randomUUID().toString();
-        // Redis 存储，1分钟过期
         stringRedisTemplate.opsForValue().set(CAPTCHA_PREFIX + captchaId, result.getCode(), 1, TimeUnit.MINUTES);
         Map<String, String> data = new HashMap<>();
         data.put("captchaId", captchaId);
@@ -65,8 +62,7 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 图形验证码校验（通用）
-     * 校验通过后立即删除验证码，防止重复使用
+     * 图形验证码校验（仅登录使用）
      */
     private ResponseUtil validateCaptcha(String captchaId, String captchaCode) {
         if (Objects.isNull(captchaId) || captchaId.trim().isEmpty()
@@ -82,26 +78,27 @@ public class UserServiceImpl implements UserService {
             stringRedisTemplate.delete(key);
             return new ResponseUtil(400, "图形验证码错误", null);
         }
-        // 验证通过，立即删除（一次性使用）
         stringRedisTemplate.delete(key);
-        return null; // null 表示校验通过
+        return null;
     }
 
     /**
-     * 发送邮箱验证码（需先通过图形验证码）
+     * 发送邮箱验证码
+     * - 已注册邮箱不发送，提示直接登录
+     * - 60秒内同一邮箱不可重复发送
      */
     @Override
-    public ResponseUtil sendCode(String email, String captchaId, String captchaCode) {
-        // 图形验证码校验
-        ResponseUtil captchaError = validateCaptcha(captchaId, captchaCode);
-        if (Objects.nonNull(captchaError))
-            return captchaError;
-
+    public ResponseUtil sendCode(String email) {
         if (Objects.isNull(email) || email.trim().isEmpty()) {
             return new ResponseUtil(400, "邮箱不能为空", null);
         }
         if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[a-zA-Z]{2,}$")) {
             return new ResponseUtil(400, "邮箱格式不正确", null);
+        }
+        // 已注册邮箱不再发送验证码，提示直接登录
+        User exist = userMapper.selectOne(new QueryWrapper<User>().eq("email", email));
+        if (Objects.nonNull(exist)) {
+            return new ResponseUtil(400, "该邮箱已注册，请直接登录", null);
         }
         // 60秒防刷
         String codeKey = EMAIL_CODE_PREFIX + email;
@@ -119,16 +116,10 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 邮箱验证码注册（需通过图形验证码 + 邮箱验证码）
+     * 邮箱验证码注册（无需图形验证码）
      */
     @Override
-    public ResponseUtil register(String email, String password, String code,
-            String captchaId, String captchaCode) {
-        // 图形验证码
-        ResponseUtil captchaError = validateCaptcha(captchaId, captchaCode);
-        if (Objects.nonNull(captchaError))
-            return captchaError;
-
+    public ResponseUtil register(String email, String password, String code) {
         if (Objects.isNull(email) || email.trim().isEmpty()
                 || Objects.isNull(password) || password.trim().isEmpty()
                 || Objects.isNull(code) || code.trim().isEmpty()) {
@@ -149,12 +140,12 @@ public class UserServiceImpl implements UserService {
         if (!storedCode.equals(code.trim())) {
             return new ResponseUtil(400, "验证码不正确", null);
         }
-        User exist = userMapper.selectOne(new QueryWrapper<User>().eq("username", email));
+        User exist = userMapper.selectOne(new QueryWrapper<User>().eq("email", email));
         if (Objects.nonNull(exist)) {
             return new ResponseUtil(400, "该邮箱已注册", null);
         }
         User user = new User();
-        user.setUsername(email);
+        user.setEmail(email);
         user.setPassword(passwordEncoder.encode(password));
         userMapper.insert(user);
         stringRedisTemplate.delete(codeKey);
@@ -162,20 +153,17 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 登录（需通过图形验证码）
+     * 登录（需图形验证码）
      */
     @Override
-    public ResponseUtil login(String username, String password,
-            String captchaId, String captchaCode) {
-        // 图形验证码
+    public ResponseUtil login(String email, String password, String captchaId, String captchaCode) {
         ResponseUtil captchaError = validateCaptcha(captchaId, captchaCode);
-        if (Objects.nonNull(captchaError))
-            return captchaError;
+        if (Objects.nonNull(captchaError)) return captchaError;
 
-        if (Objects.isNull(username) || Objects.isNull(password)) {
+        if (Objects.isNull(email) || Objects.isNull(password)) {
             return new ResponseUtil(400, "邮箱和密码不能为空", null);
         }
-        User user = userMapper.selectOne(new QueryWrapper<User>().eq("username", username));
+        User user = userMapper.selectOne(new QueryWrapper<User>().eq("email", email));
         if (Objects.isNull(user)) {
             return new ResponseUtil(400, "用户不存在", null);
         }
@@ -183,15 +171,15 @@ public class UserServiceImpl implements UserService {
             return new ResponseUtil(400, "密码错误", null);
         }
         // 单设备登录
-        String tokenKey = TOKEN_PREFIX + username;
-        String refreshKey = REFRESH_TOKEN_PREFIX + username;
+        String tokenKey = TOKEN_PREFIX + email;
+        String refreshKey = REFRESH_TOKEN_PREFIX + email;
         String oldToken = stringRedisTemplate.opsForValue().get(tokenKey);
         if (Objects.nonNull(oldToken)) {
             stringRedisTemplate.delete(tokenKey);
             stringRedisTemplate.delete(refreshKey);
         }
-        String accessToken = jwtUtil.generateAccessToken(username);
-        String refreshToken = jwtUtil.generateRefreshToken(username);
+        String accessToken = jwtUtil.generateAccessToken(email);
+        String refreshToken = jwtUtil.generateRefreshToken(email);
         stringRedisTemplate.opsForValue().set(tokenKey, accessToken, 30, TimeUnit.MINUTES);
         stringRedisTemplate.opsForValue().set(refreshKey, refreshToken, 7, TimeUnit.DAYS);
         Map<String, String> data = new HashMap<>();
@@ -202,14 +190,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseUtil logout(String token) {
-        String username;
+        String email;
         try {
-            username = jwtUtil.getUsernameFromToken(token);
+            email = jwtUtil.getUsernameFromToken(token);
         } catch (Exception e) {
             return new ResponseUtil(400, "Token 无效", null);
         }
-        stringRedisTemplate.delete(TOKEN_PREFIX + username);
-        stringRedisTemplate.delete(REFRESH_TOKEN_PREFIX + username);
+        stringRedisTemplate.delete(TOKEN_PREFIX + email);
+        stringRedisTemplate.delete(REFRESH_TOKEN_PREFIX + email);
         return new ResponseUtil(200, "登出成功", null);
     }
 
@@ -221,14 +209,14 @@ public class UserServiceImpl implements UserService {
         if (!jwtUtil.validateToken(refreshToken)) {
             return new ResponseUtil(401, "refreshToken 无效或已过期，请重新登录", null);
         }
-        String username = jwtUtil.getUsernameFromToken(refreshToken);
-        String refreshKey = REFRESH_TOKEN_PREFIX + username;
+        String email = jwtUtil.getUsernameFromToken(refreshToken);
+        String refreshKey = REFRESH_TOKEN_PREFIX + email;
         String storedRefreshToken = stringRedisTemplate.opsForValue().get(refreshKey);
         if (Objects.isNull(storedRefreshToken) || !storedRefreshToken.equals(refreshToken)) {
             return new ResponseUtil(401, "refreshToken 已失效，请重新登录", null);
         }
-        String newAccessToken = jwtUtil.generateAccessToken(username);
-        stringRedisTemplate.opsForValue().set(TOKEN_PREFIX + username, newAccessToken, 30, TimeUnit.MINUTES);
+        String newAccessToken = jwtUtil.generateAccessToken(email);
+        stringRedisTemplate.opsForValue().set(TOKEN_PREFIX + email, newAccessToken, 30, TimeUnit.MINUTES);
         Map<String, String> data = new HashMap<>();
         data.put("accessToken", newAccessToken);
         return new ResponseUtil(200, "Token 刷新成功", data);

@@ -40,11 +40,11 @@
             size="large"
             @keyup.enter="handleLogin"
           >
-            <el-form-item prop="username">
+            <el-form-item prop="email">
               <el-input
-                v-model="form.username"
-                placeholder="请输入用户名"
-                :prefix-icon="User"
+                v-model="form.email"
+                placeholder="请输入邮箱地址"
+                :prefix-icon="Message"
               />
             </el-form-item>
             <el-form-item prop="password">
@@ -173,7 +173,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { User, Lock, UserFilled, PictureFilled, ArrowLeft, CircleCheck } from '@element-plus/icons-vue'
+import { User, Lock, Message, UserFilled, PictureFilled, ArrowLeft, CircleCheck } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { login, getCaptcha } from '@/api/user'
 import { setTokens } from '@/utils/token'
@@ -187,13 +187,13 @@ const captchaImage = ref('')
 const captchaId = ref('')
 
 const form = reactive({
-  username: '',
+  email: '',
   password: '',
   captchaCode: '',
 })
 
 const rules = {
-  username: [{ required: true, message: '请输入用户名/邮箱', trigger: 'blur' }],
+  email: [{ required: true, message: '请输入邮箱地址', trigger: 'blur' }],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码不能少于6位', trigger: 'blur' },
@@ -222,7 +222,7 @@ const handleLogin = async () => {
   if (!valid) return
   loading.value = true
   try {
-    const res = await login(form.username, form.password, captchaId.value, form.captchaCode)
+    const res = await login(form.email, form.password, captchaId.value, form.captchaCode)
     setTokens(res.data.accessToken, res.data.refreshToken)
     ElMessage.success('登录成功')
     router.push('/home')

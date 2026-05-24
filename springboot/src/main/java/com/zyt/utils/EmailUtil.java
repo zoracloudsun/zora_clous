@@ -24,26 +24,34 @@ public class EmailUtil {
     private String from;
 
     /**
-     * 发送邮箱验证码
-     *
+     * 异步发送邮箱验证码
+     * 新线程发送，避免 SMTP 连接耗时阻塞 HTTP 响应导致前端超时报"网络错误"
+     * 
      * @param to   收件人邮箱地址
      * @param code 6位数字验证码
      */
     public void sendVerificationCode(String to, String code) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(from);
-        message.setTo(to);
-        message.setSubject("Spring Boot Auth — 邮箱验证码");
-        message.setText(String.format("""
-                您好！
+        new Thread(() -> {
+            try {
+                SimpleMailMessage message = new SimpleMailMessage();
+                message.setFrom(from);
+                message.setTo(to);
+                message.setSubject("Spring Boot Auth — 邮箱验证码");
+                message.setText(String.format("""
+                        您好！
 
-                您的验证码是：%s
+                        您的验证码是：%s
 
-                该验证码 5 分钟内有效，请勿泄露给他人。
-                如非本人操作，请忽略此邮件。
+                        该验证码 5 分钟内有效，请勿泄露给他人。
+                        如非本人操作，请忽略此邮件。
 
-                —— Spring Boot Auth 认证系统
-                """, code));
-        mailSender.send(message);
+                        —— Spring Boot Auth 认证系统
+                        """, code));
+                mailSender.send(message);
+            } catch (Exception e) {
+                // 异步发送失败仅打印日志，不影响接口返回
+                e.printStackTrace();
+            }
+        }).start();
     }
 }

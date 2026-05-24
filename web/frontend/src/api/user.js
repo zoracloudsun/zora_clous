@@ -4,16 +4,16 @@ export function getCaptcha() {
   return request.get('/user/captcha')
 }
 
-export function sendCode(email, captchaId, captchaCode) {
-  return request.post('/user/send-code', { email, captchaId, captchaCode })
+export function sendCode(email) {
+  return request.post('/user/send-code', { email })
 }
 
-export function register(email, password, code, captchaId, captchaCode) {
-  return request.post('/user/register', { email, password, code, captchaId, captchaCode })
+export function register(email, password, code) {
+  return request.post('/user/register', { email, password, code })
 }
 
-export function login(username, password, captchaId, captchaCode) {
-  return request.post('/user/login', { username, password, captchaId, captchaCode })
+export function login(email, password, captchaId, captchaCode) {
+  return request.post('/user/login', { email, password, captchaId, captchaCode })
 }
 
 export function logout() {
