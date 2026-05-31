@@ -15,6 +15,10 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(loginInterceptor)
                 .addPathPatterns("/**")
-                .excludePathPatterns("/user/login", "/user/register", "/user/refresh", "/user/send-code", "/user/captcha");
+                .excludePathPatterns("/user/login", "/user/register", "/user/refresh", "/user/send-code",
+                        "/user/send-bind-code",
+                        "/user/captcha",
+                        "/user/wechat/qrcode", "/user/wechat/check",
+                        "/user/wechat/callback", "/user/wechat/bind-email");
     }
 }

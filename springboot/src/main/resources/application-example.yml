@@ -51,3 +51,11 @@ jwt:
   secret: YOUR_JWT_SECRET_KEY_MUST_BE_AT_LEAST_32_CHARACTERS
   access-token-expiration: 1800000
   refresh-token-expiration: 604800000
+
+# 微信开放平台/测试号配置
+# 测试号获取: https://mp.weixin.qq.com/debug/cgi-bin/sandbox?t=sandbox/login
+# 内网穿透: ngrok http 8080 → 将 https://xxxx.ngrok-free.app 填入测试号回调域名
+wechat:
+  app-id: ${WECHAT_APP_ID:xxx}
+  app-secret: ${WECHAT_APP_SECRET:xxxx}
+  callback-url: ${WECHAT_CALLBACK_URL:https://xxxxxx/user/wechat/callback}

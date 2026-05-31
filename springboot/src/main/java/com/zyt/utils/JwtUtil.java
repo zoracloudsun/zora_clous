@@ -90,6 +90,31 @@ public class JwtUtil {
         }
     }
 
+    /**
+     * 校验 Token 是否为 refresh 类型，防止攻击者用 accessToken 冒充 refreshToken 无限续期
+     * 只有 type=refresh 的 Token 才能调用 /user/refresh 换取新 accessToken
+     */
+    public boolean isRefreshToken(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            return "refresh".equals(claims.get("type"));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * 校验 Token 是否为 access 类型，用于拦截器二次确认（可选启用）
+     */
+    public boolean isAccessToken(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            return "access".equals(claims.get("type"));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     // 解析 JWT 并校验签名，jjwt 0.12.x API：verifyWith → build → parseSignedClaims
     private Claims parseClaims(String token) {
         return Jwts.parser()
