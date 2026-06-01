@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getToken, getRefreshToken, setToken, removeToken } from '@/utils/token'
+import { getToken, getRefreshToken, setToken, setRole, removeToken } from '@/utils/token'
 import { ElMessage } from 'element-plus'
 
 const request = axios.create({
@@ -79,8 +79,10 @@ request.interceptors.response.use(
         // 用 refreshToken 换取新的 accessToken
         const res = await axios.post('/user/refresh', { refreshToken })
         const newAccessToken = res.data.data.accessToken
-        // 更新 localStorage，通知所有排队请求，重试当前请求
+        const newRole = res.data.data.role
+        // 更新 localStorage（Token + 角色），通知所有排队请求，重试当前请求
         setToken(newAccessToken)
+        if (newRole) setRole(newRole)
         onRefreshed(newAccessToken)
         config.headers.Authorization = newAccessToken
         return request(config)

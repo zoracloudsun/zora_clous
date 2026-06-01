@@ -5,6 +5,15 @@
         <span class="logo">Spring Boot Auth System</span>
         <div class="header-right">
           <span class="welcome">欢迎回来</span>
+          <el-button
+            v-if="role === 'admin'"
+            type="primary"
+            plain
+            size="default"
+            @click="$router.push('/admin')"
+          >
+            管理后台
+          </el-button>
           <el-button type="danger" plain size="default" @click="handleLogout">
             退出登录
           </el-button>
@@ -40,12 +49,14 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { logout } from '@/api/user'
-import { removeToken } from '@/utils/token'
+import { removeToken, getRole } from '@/utils/token'
 
 const router = useRouter()
+const role = ref(getRole())
 
 const handleLogout = async () => {
   try {

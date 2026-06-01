@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { getToken } from '@/utils/token'
+import { getToken, getRole } from '@/utils/token'
 
 const routes = [
   {
@@ -30,6 +30,12 @@ const routes = [
     component: () => import('@/views/Home.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/admin',
+    name: 'Admin',
+    component: () => import('@/views/Admin.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
 ]
 
 const router = createRouter({
@@ -43,6 +49,16 @@ router.beforeEach((to, from, next) => {
     next('/login')
   } else if (to.meta.guest && token) {
     next('/home')
+  } else if (to.meta.requiresAdmin) {
+    const role = getRole()
+    if (role !== 'admin') {
+      import('element-plus').then(({ ElMessage }) => {
+        ElMessage.warning('需要管理员权限')
+      })
+      next('/home')
+    } else {
+      next()
+    }
   } else {
     next()
   }

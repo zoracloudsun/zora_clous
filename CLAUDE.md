@@ -41,11 +41,11 @@ redis-cli
 Spring Security is configured but **only** for `BCryptPasswordEncoder` — all auth filters (CSRF, session, form-login) are explicitly disabled in `SecurityConfig.java`. Actual authentication runs through a custom `LoginInterceptor` (Spring MVC `HandlerInterceptor`), which is simpler and more transparent than Spring Security's filter chain.
 
 **Interceptor chain** (for protected endpoints):
-1. Extract `Authorization` header → accessToken
-2. JWT self-validation (signature + expiry)
-3. Redis comparison (single-device check: does the token match what's stored?)
+1. `LoginInterceptor` → extract `Authorization` header → JWT validation (signature + expiry) → Redis comparison (single-device check) → store `userEmail` + `userRole` as request attributes
+2. `RoleInterceptor` → check `@RequireRole` annotation on handler → compare against `request.getAttribute("userRole")` → 403 if insufficient role
 
 Endpoints excluded from interception are listed in `WebConfig.addInterceptors()` — when adding new public endpoints, **always add them to `excludePathPatterns`**.
+- **New admin endpoints**: Apply `@RequireRole("admin")` on the controller method — the RoleInterceptor will enforce it. Do NOT add admin endpoints to `excludePathPatterns`.
 
 ### Dual JWT Token System
 
@@ -137,10 +137,10 @@ Vue Component  →  api/user.js  →  api/index.js (Axios instance)
 
 - **New public endpoints**: Always add to `WebConfig.excludePathPatterns`, or the interceptor will reject them with 401
 - **Password storage**: Always use `BCryptPasswordEncoder` (injected, not `new`-ed)
-- **JWT type claim**: `generateAccessToken` writes `"access"`, `generateRefreshToken` writes `"refresh"` — never mix them
+- **JWT claims**: `generateAccessToken(email, role)` writes `"access"` type + `role` claim; `generateRefreshToken(email, role)` writes `"refresh"` type + `role` claim — all callers must pass the user's role. `getRoleFromToken(token)` extracts the role claim for authorization checks.
 - **Redis key naming**: `prefix:identifier` (colon-separated), constants defined at top of `UserServiceImpl`
 - **Error messages for login**: Always return "邮箱或密码错误" (unified), never distinguish "user not found" vs "wrong password" (prevents user enumeration)
-- **HTTP status codes**: 200 (success), 400 (client error), 401 (unauthorized), 429 (rate limited / brute-force locked), 500 (server error)
+- **HTTP status codes**: 200 (success), 400 (client error), 401 (unauthorized), 403 (forbidden — insufficient role), 429 (rate limited / brute-force locked), 500 (server error)
 - **Frontend path alias**: `@` resolves to `src/` (configured in `vite.config.js`)
 - **Vite proxy**: All `/user` requests are proxied to `http://localhost:8080` in dev mode — never hardcode `localhost:8080` in frontend API calls
 - **Email sending**: Always async (`new Thread(() -> ...).start()`) — SMTP is slow and blocks HTTP response

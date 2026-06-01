@@ -318,7 +318,7 @@ const handleLogin = async () => {
   loading.value = true
   try {
     const res = await login(form.email, form.password, captchaId.value, form.captchaCode)
-    setTokens(res.data.accessToken, res.data.refreshToken)
+    setTokens(res.data.accessToken, res.data.refreshToken, res.data.role)
     ElMessage.success('登录成功')
     router.push('/home')
   } catch {
@@ -376,7 +376,7 @@ const startPolling = () => {
         wechatStatus.value = 'confirmed'
         // 展示登录用户信息（直接登录场景：已绑定的微信用户）
         wxNickname.value = res.data.nickname || res.data.email || ''
-        setTokens(res.data.accessToken, res.data.refreshToken)
+        setTokens(res.data.accessToken, res.data.refreshToken, res.data.role)
         ElMessage.success('登录成功')
         setTimeout(() => router.push('/home'), 800)
       } else if (res.data.status === 'scanned') {
@@ -440,7 +440,7 @@ const handleBindWechatEmail = async () => {
     clearInterval(pollTimer)
     clearInterval(bindCountdownTimer)
     // 绑定成功直接拿到 Token，无需等轮询
-    setTokens(res.data.accessToken, res.data.refreshToken)
+    setTokens(res.data.accessToken, res.data.refreshToken, res.data.role)
     wechatStatus.value = 'confirmed'
     ElMessage.success('绑定成功，欢迎！')
     setTimeout(() => router.push('/home'), 800)

@@ -61,3 +61,15 @@ export function sendResetCode(email) {
 export function resetPassword(email, password, code) {
   return request.post('/user/forgot-password/reset', { email, password, code })
 }
+
+// ==================== RBAC 角色权限 ====================
+
+/** Admin: 分页查询所有用户 */
+export function getAdminUsers(page = 1, size = 10) {
+  return request.get('/user/admin/users', { params: { page, size } })
+}
+
+/** 获取当前登录用户信息 */
+export function getCurrentUser() {
+  return request.get('/user/me')
+}

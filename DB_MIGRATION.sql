@@ -12,3 +12,7 @@ ALTER TABLE user
 
 -- 2. 为 openid 添加唯一索引（一个微信号只能绑定一个账号）
 CREATE UNIQUE INDEX idx_user_openid ON user (openid);
+
+-- 3. 添加 role 列（RBAC 角色权限控制）
+ALTER TABLE user ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user' COMMENT 'user | admin' AFTER avatar;
+UPDATE user SET role = 'user' WHERE role IS NULL;

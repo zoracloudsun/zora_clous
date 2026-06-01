@@ -34,6 +34,7 @@
 | 微信扫码登录 | ✅ | 真实 OAuth 2.0（测试号），已绑定用户扫码直接登录，新用户扫码后邮箱绑定 |
 | 微信账号关联 | ✅ | 支持已绑定直接登录 / 新注册 / 已有账号绑定 / 已绑定拒绝四种场景 |
 | 邮箱找回密码 | ✅ | 邮箱验证码 + 重置后强制所有设备重新登录 |
+| 角色权限控制（RBAC） | ✅ | 自定义 @RequireRole 注解 + RoleInterceptor，user/admin 双角色，JWT role claim |
 
 ---
 
@@ -161,12 +162,20 @@ npm run dev
 # → http://localhost:3000
 ```
 
-### 7. 开始使用
+### 7. 设置管理员（RBAC）
+
+```bash
+# 注册一个账号后，用 MySQL 手动将其提升为管理员
+mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email = 'your_admin@example.com';"
+```
+
+### 8. 开始使用
 
 1. 浏览器访问 `http://localhost:3000`
 2. 点击底部「注册账号」→ 输入邮箱 → 发送验证码 → 注册
 3. 返回登录页 → 输入邮箱 + 密码 + 图形验证码 → 登录
 4. 或切换到「微信登录」Tab → 扫码 → 已绑定直接登录 / 新用户绑定邮箱 → 自动登录
+5. 管理员用户登录后，首页会显示「管理后台」入口，可查看所有注册用户
 
 ---
 
@@ -200,6 +209,13 @@ npm run dev
 |------|------|:----:|------|
 | POST | `/user/forgot-password/send-code` | 否 | 发送密码重置验证码（仅已注册邮箱） |
 | POST | `/user/forgot-password/reset` | 否 | 验证码校验 + 重置密码 + 踢掉所有设备 |
+
+### RBAC 角色权限
+
+| 方法 | 路径 | 认证 | 说明 |
+|------|------|------|------|
+| GET | `/user/me` | accessToken | 获取当前登录用户信息（含角色） |
+| GET | `/user/admin/users` | accessToken + admin | 管理员分页查询所有用户（不含密码） |
 
 ---
 
@@ -330,7 +346,7 @@ PC 浏览器   手机微信   后端
 ## 后续规划
 
 - [x] 邮箱找回密码
-- [ ] 角色权限控制（RBAC）
+- [x] 角色权限控制（RBAC）
 - [ ] 全局异常处理（`@ControllerAdvice`）
 - [ ] Swagger / Knife4j 接口文档
 - [ ] 单元测试（JUnit 5 + MockMvc）
