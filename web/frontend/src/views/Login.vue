@@ -334,7 +334,7 @@ const handleCheckAll = (val) => {
 }
 
 const forgetPassword = () => {
-  ElMessage.info('请联系管理员重置密码')
+  router.push('/forgot-password')
 }
 
 const showAgreement = (type) => {

@@ -62,6 +62,7 @@ public class UserServiceImpl implements UserService {
     private static final String WECHAT_SCENE_PREFIX = "wechat_scene:";
     private static final String WECHAT_DATA_PREFIX = "wechat_data:";
     private static final String WECHAT_TOKEN_PREFIX = "wechat_token:";
+    private static final String RESET_CODE_PREFIX = "reset_code:";
 
     private static final int MAX_LOGIN_FAIL_COUNT = 5;
     private static final int LOGIN_LOCK_MINUTES = 15;
@@ -161,6 +162,92 @@ public class UserServiceImpl implements UserService {
         stringRedisTemplate.opsForValue().set(codeKey, code, 5, TimeUnit.MINUTES);
         emailUtil.sendVerificationCode(email, code);
         return new ResponseUtil(200, "验证码已发送至邮箱，5分钟内有效", null);
+    }
+
+    // ==================== 邮箱找回密码 ====================
+
+    /**
+     * 发送密码重置验证码
+     * - 仅已注册邮箱可发送（未注册直接提示）
+     * - 60秒内同一邮箱不可重复发送
+     */
+    @Override
+    public ResponseUtil sendResetCode(String email) {
+        if (Objects.isNull(email) || email.trim().isEmpty()) {
+            return new ResponseUtil(400, "邮箱不能为空", null);
+        }
+        if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[a-zA-Z]{2,}$")) {
+            return new ResponseUtil(400, "邮箱格式不正确", null);
+        }
+
+        // 检查邮箱是否已注册
+        User exist = userMapper.selectOne(new QueryWrapper<User>().eq("email", email));
+        if (Objects.isNull(exist)) {
+            return new ResponseUtil(400, "该邮箱未注册", null);
+        }
+
+        // 60秒防刷（使用独立的 reset_code: 前缀，与注册验证码隔离）
+        String codeKey = RESET_CODE_PREFIX + email;
+        String existingCode = stringRedisTemplate.opsForValue().get(codeKey);
+        if (Objects.nonNull(existingCode)) {
+            Long ttl = stringRedisTemplate.getExpire(codeKey);
+            if (Objects.nonNull(ttl) && ttl > 240) {
+                return new ResponseUtil(400, "验证码已发送，" + (ttl - 240) + " 秒后可重新获取", null);
+            }
+        }
+
+        String code = String.format("%06d", (int) (Math.random() * 1000000));
+        stringRedisTemplate.opsForValue().set(codeKey, code, 5, TimeUnit.MINUTES);
+        emailUtil.sendResetCode(email, code);
+        return new ResponseUtil(200, "验证码已发送至邮箱，5分钟内有效", null);
+    }
+
+    /**
+     * 密码重置（验证码校验 + 更新密码 + 踢掉所有设备）
+     * - 校验邮箱验证码
+     * - BCrypt 加密新密码并更新
+     * - 删除所有旧 Token，强制所有设备重新登录
+     */
+    @Override
+    public ResponseUtil resetPassword(String email, String newPassword, String code) {
+        if (Objects.isNull(email) || email.trim().isEmpty()
+                || Objects.isNull(newPassword) || newPassword.trim().isEmpty()
+                || Objects.isNull(code) || code.trim().isEmpty()) {
+            return new ResponseUtil(400, "邮箱、密码和验证码不能为空", null);
+        }
+        if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[a-zA-Z]{2,}$")) {
+            return new ResponseUtil(400, "邮箱格式不正确", null);
+        }
+        if (newPassword.length() < 6) {
+            return new ResponseUtil(400, "密码不能少于6位", null);
+        }
+
+        // 验证邮箱验证码
+        String codeKey = RESET_CODE_PREFIX + email;
+        String storedCode = stringRedisTemplate.opsForValue().get(codeKey);
+        if (Objects.isNull(storedCode)) {
+            return new ResponseUtil(400, "验证码已过期或未发送，请重新获取", null);
+        }
+        if (!storedCode.equals(code.trim())) {
+            return new ResponseUtil(400, "验证码不正确", null);
+        }
+
+        // 查找用户（验证码有效意味着邮箱已注册，但做一次防御性检查）
+        User user = userMapper.selectOne(new QueryWrapper<User>().eq("email", email));
+        if (Objects.isNull(user)) {
+            return new ResponseUtil(400, "该邮箱未注册", null);
+        }
+
+        // 更新密码
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userMapper.updateById(user);
+
+        // 清理：删除验证码 + 踢掉所有设备（删除旧 Token 强制重新登录）
+        stringRedisTemplate.delete(codeKey);
+        stringRedisTemplate.delete(TOKEN_PREFIX + email);
+        stringRedisTemplate.delete(REFRESH_TOKEN_PREFIX + email);
+
+        return new ResponseUtil(200, "密码重置成功，请使用新密码登录", null);
     }
 
     /**

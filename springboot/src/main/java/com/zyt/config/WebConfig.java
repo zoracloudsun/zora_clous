@@ -18,6 +18,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .excludePathPatterns("/user/login", "/user/register", "/user/refresh", "/user/send-code",
                         "/user/send-bind-code",
                         "/user/captcha",
+                        "/user/forgot-password/send-code", "/user/forgot-password/reset",
                         "/user/wechat/qrcode", "/user/wechat/check",
                         "/user/wechat/callback", "/user/wechat/bind-email");
     }

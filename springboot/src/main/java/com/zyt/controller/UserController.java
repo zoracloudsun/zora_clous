@@ -95,4 +95,18 @@ public class UserController {
     public ResponseUtil sendBindCode(@RequestBody Map<String, String> body) {
         return userService.sendBindCode(body.get("email"));
     }
+
+    // ==================== 邮箱找回密码 ====================
+
+    /** 发送密码重置验证码（仅已注册邮箱发送） */
+    @PostMapping("/forgot-password/send-code")
+    public ResponseUtil sendResetCode(@RequestBody Map<String, String> body) {
+        return userService.sendResetCode(body.get("email"));
+    }
+
+    /** 验证码校验 + 密码重置 + 踢掉所有设备 */
+    @PostMapping("/forgot-password/reset")
+    public ResponseUtil resetPassword(@RequestBody Map<String, String> body) {
+        return userService.resetPassword(body.get("email"), body.get("password"), body.get("code"));
+    }
 }

@@ -15,6 +15,13 @@ public interface UserService {
     // ==================== 微信扫码登录 ====================
     /** 微信绑定邮箱专用：发送验证码（允许已注册邮箱） */
     ResponseUtil sendBindCode(String email);
+
+    // ==================== 邮箱找回密码 ====================
+    /** 发送密码重置验证码（仅已注册邮箱可发送） */
+    ResponseUtil sendResetCode(String email);
+    /** 验证码校验 + 密码重置 + 踢掉所有设备 */
+    ResponseUtil resetPassword(String email, String newPassword, String code);
+
     ResponseUtil wechatQrcode();
     ResponseUtil wechatCheck(String sceneId);
     /** 微信 OAuth 回调：用 code 换取用户信息，存入 Redis */

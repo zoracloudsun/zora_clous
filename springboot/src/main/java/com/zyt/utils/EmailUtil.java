@@ -54,4 +54,35 @@ public class EmailUtil {
             }
         }).start();
     }
+
+    /**
+     * 异步发送密码重置验证码
+     * 与注册验证码使用独立的邮件模板（标题和正文不同），避免用户混淆
+     *
+     * @param to   收件人邮箱地址
+     * @param code 6位数字验证码
+     */
+    public void sendResetCode(String to, String code) {
+        new Thread(() -> {
+            try {
+                SimpleMailMessage message = new SimpleMailMessage();
+                message.setFrom(from);
+                message.setTo(to);
+                message.setSubject("Spring Boot Auth — 密码重置验证码");
+                message.setText(String.format("""
+                        您好！
+
+                        您正在申请重置密码，验证码是：%s
+
+                        该验证码 5 分钟内有效，请勿泄露给他人。
+                        如非本人操作，请忽略此邮件。
+
+                        —— Spring Boot Auth 认证系统
+                        """, code));
+                mailSender.send(message);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
 }

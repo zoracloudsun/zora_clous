@@ -49,3 +49,15 @@ export function sendBindCode(email) {
 export function bindWechatEmail(sceneId, email, code) {
   return request.post('/user/wechat/bind-email', { sceneId, email, code })
 }
+
+// ==================== 邮箱找回密码 ====================
+
+/** 发送密码重置验证码 */
+export function sendResetCode(email) {
+  return request.post('/user/forgot-password/send-code', { email })
+}
+
+/** 验证码校验 + 重置密码 */
+export function resetPassword(email, password, code) {
+  return request.post('/user/forgot-password/reset', { email, password, code })
+}
