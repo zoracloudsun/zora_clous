@@ -19,6 +19,10 @@ public class User {
     /** 微信头像 URL */
     private String avatar;
 
+    // ==================== RBAC 角色权限 ====================
+    /** 用户角色：user 普通用户, admin 管理员 */
+    private String role;
+
     public User() {}
 
     public User(Integer id, String email, String password) {
@@ -40,4 +44,7 @@ public class User {
     public void setNickname(String nickname) { this.nickname = nickname; }
     public String getAvatar() { return avatar; }
     public void setAvatar(String avatar) { this.avatar = avatar; }
+
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
 }

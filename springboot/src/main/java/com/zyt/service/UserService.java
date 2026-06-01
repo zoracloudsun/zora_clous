@@ -28,4 +28,10 @@ public interface UserService {
     ResponseUtil wechatCallback(String code, String state);
     /** 扫码后绑定邮箱：验证码校验 + 创建/关联用户 + 签发 Token */
     ResponseUtil bindWechatEmail(String sceneId, String email, String code);
+
+    // ==================== RBAC 角色权限 ====================
+    /** 管理员分页查询所有用户（不含密码） */
+    Map<String, Object> listUsers(int page, int size);
+    /** 获取当前登录用户信息 */
+    Map<String, Object> getCurrentUser(String email);
 }

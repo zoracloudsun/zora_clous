@@ -54,6 +54,9 @@ public class LoginInterceptor implements HandlerInterceptor {
             writeError(response, "Token 已失效，请重新登录");
             return false;
         }
+        // 鉴权通过，存储用户身份信息供下游 RoleInterceptor 和 Controller 使用
+        request.setAttribute("userEmail", username);
+        request.setAttribute("userRole", jwtUtil.getRoleFromToken(token));
         return true;
     }
 

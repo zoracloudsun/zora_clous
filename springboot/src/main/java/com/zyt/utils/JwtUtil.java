@@ -32,10 +32,11 @@ public class JwtUtil {
      * 用于日常 API 鉴权，有效期短（默认30分钟），降低泄露风险
      * JWT claims 中写入 type=access 区分令牌类型，防止混用
      */
-    public String generateAccessToken(String username) {
+    public String generateAccessToken(String username, String role) {
         return Jwts.builder()
                 .subject(username)
                 .claim("type", "access")
+                .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessTokenExpiration))
                 .signWith(getKey())
@@ -47,10 +48,11 @@ public class JwtUtil {
      * 仅用于换取新的 Access Token，有效期长（默认7天），避免频繁登录
      * JWT claims 中写入 type=refresh 区分令牌类型，防止当 Access Token 使用
      */
-    public String generateRefreshToken(String username) {
+    public String generateRefreshToken(String username, String role) {
         return Jwts.builder()
                 .subject(username)
                 .claim("type", "refresh")
+                .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + refreshTokenExpiration))
                 .signWith(getKey())
@@ -60,8 +62,8 @@ public class JwtUtil {
     /**
      * 兼容旧版单 Token 调用，内部委托给 generateAccessToken
      */
-    public String generateToken(String username) {
-        return generateAccessToken(username);
+    public String generateToken(String username, String role) {
+        return generateAccessToken(username, role);
     }
 
     // 从 JWT 中提取用户名（subject）
@@ -101,6 +103,13 @@ public class JwtUtil {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    /**
+     * 从 JWT 中提取用户角色（role claim）
+     */
+    public String getRoleFromToken(String token) {
+        return (String) parseClaims(token).get("role");
     }
 
     /**

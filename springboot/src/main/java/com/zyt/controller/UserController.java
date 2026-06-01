@@ -1,8 +1,10 @@
 package com.zyt.controller;
 
+import com.zyt.config.RequireRole;
 import com.zyt.service.UserService;
 import com.zyt.utils.ResponseUtil;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -108,5 +110,29 @@ public class UserController {
     @PostMapping("/forgot-password/reset")
     public ResponseUtil resetPassword(@RequestBody Map<String, String> body) {
         return userService.resetPassword(body.get("email"), body.get("password"), body.get("code"));
+    }
+
+    // ==================== RBAC 角色权限 ====================
+
+    /** Admin: 分页查询所有用户（不含密码） */
+    @RequireRole("admin")
+    @GetMapping("/admin/users")
+    public ResponseUtil listUsers(@RequestParam(defaultValue = "1") int page,
+                                   @RequestParam(defaultValue = "10") int size) {
+        return new ResponseUtil(200, "查询成功", userService.listUsers(page, size));
+    }
+
+    /** 获取当前登录用户信息 */
+    @GetMapping("/me")
+    public ResponseUtil me(HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        if (email == null) {
+            return new ResponseUtil(401, "未登录", null);
+        }
+        Map<String, Object> info = userService.getCurrentUser(email);
+        if (info == null) {
+            return new ResponseUtil(404, "用户不存在", null);
+        }
+        return new ResponseUtil(200, "查询成功", info);
     }
 }

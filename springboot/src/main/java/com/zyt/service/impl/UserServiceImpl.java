@@ -1,6 +1,7 @@
 package com.zyt.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zyt.config.WechatConfig;
 import com.zyt.entity.User;
@@ -282,6 +283,7 @@ public class UserServiceImpl implements UserService {
         User user = new User();
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(password));
+        user.setRole("user");
         userMapper.insert(user);
         stringRedisTemplate.delete(codeKey);
         return new ResponseUtil(200, "注册成功", null);
@@ -330,13 +332,14 @@ public class UserServiceImpl implements UserService {
             stringRedisTemplate.delete(tokenKey);
             stringRedisTemplate.delete(refreshKey);
         }
-        String accessToken = jwtUtil.generateAccessToken(email);
-        String refreshToken = jwtUtil.generateRefreshToken(email);
+        String accessToken = jwtUtil.generateAccessToken(email, user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(email, user.getRole());
         stringRedisTemplate.opsForValue().set(tokenKey, accessToken, 30, TimeUnit.MINUTES);
         stringRedisTemplate.opsForValue().set(refreshKey, refreshToken, 7, TimeUnit.DAYS);
         Map<String, String> data = new HashMap<>();
         data.put("accessToken", accessToken);
         data.put("refreshToken", refreshToken);
+        data.put("role", user.getRole());
         return new ResponseUtil(200, "登录成功", data);
     }
 
@@ -382,10 +385,12 @@ public class UserServiceImpl implements UserService {
         if (Objects.isNull(storedRefreshToken) || !storedRefreshToken.equals(refreshToken)) {
             return new ResponseUtil(401, "refreshToken 已失效，请重新登录", null);
         }
-        String newAccessToken = jwtUtil.generateAccessToken(email);
+        String role = jwtUtil.getRoleFromToken(refreshToken);
+        String newAccessToken = jwtUtil.generateAccessToken(email, role);
         stringRedisTemplate.opsForValue().set(TOKEN_PREFIX + email, newAccessToken, 30, TimeUnit.MINUTES);
         Map<String, String> data = new HashMap<>();
         data.put("accessToken", newAccessToken);
+        data.put("role", role);
         return new ResponseUtil(200, "Token 刷新成功", data);
     }
 
@@ -486,6 +491,7 @@ public class UserServiceImpl implements UserService {
                 if (parts.length > 1) data.put("refreshToken", parts[1]);
                 if (parts.length > 2) data.put("email", parts[2]);
                 if (parts.length > 3) data.put("nickname", parts[3]);
+                if (parts.length > 4) data.put("role", parts[4]);
             }
         }
         return new ResponseUtil(200, "查询成功", data);
@@ -546,15 +552,15 @@ public class UserServiceImpl implements UserService {
             stringRedisTemplate.delete(tokenKey);
             stringRedisTemplate.delete(refreshKey);
 
-            String accessToken = jwtUtil.generateAccessToken(boundEmail);
-            String refreshToken = jwtUtil.generateRefreshToken(boundEmail);
+            String accessToken = jwtUtil.generateAccessToken(boundEmail, boundUser.getRole());
+            String refreshToken = jwtUtil.generateRefreshToken(boundEmail, boundUser.getRole());
             stringRedisTemplate.opsForValue().set(tokenKey, accessToken, 30, TimeUnit.MINUTES);
             stringRedisTemplate.opsForValue().set(refreshKey, refreshToken, 7, TimeUnit.DAYS);
 
-            // 存储 Token 供 PC 轮询获取
+            // 存储 Token 供 PC 轮询获取（格式：token|refresh|email|nickname|role）
             stringRedisTemplate.opsForValue().set(
                     WECHAT_TOKEN_PREFIX + state,
-                    accessToken + "|" + refreshToken + "|" + boundEmail + "|" + nickname,
+                    accessToken + "|" + refreshToken + "|" + boundEmail + "|" + nickname + "|" + boundUser.getRole(),
                     WECHAT_SCENE_TTL_MINUTES,
                     TimeUnit.MINUTES);
             stringRedisTemplate.opsForValue().set(sceneKey, "confirmed", WECHAT_SCENE_TTL_MINUTES, TimeUnit.MINUTES);
@@ -650,13 +656,14 @@ public class UserServiceImpl implements UserService {
             if (!avatar.isEmpty()) user.setAvatar(avatar);
             userMapper.updateById(user);
         } else {
-            // 新用户：创建账号
+            // 新用户：创建账号（默认角色为 user）
             user = new User();
             user.setEmail(email);
             user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
             user.setOpenid(openid);
             user.setNickname(nickname);
             user.setAvatar(avatar);
+            user.setRole("user");
             userMapper.insert(user);
         }
 
@@ -669,15 +676,15 @@ public class UserServiceImpl implements UserService {
         stringRedisTemplate.delete(tokenKey);
         stringRedisTemplate.delete(refreshKey);
 
-        String accessToken = jwtUtil.generateAccessToken(email);
-        String refreshToken = jwtUtil.generateRefreshToken(email);
+        String accessToken = jwtUtil.generateAccessToken(email, user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(email, user.getRole());
         stringRedisTemplate.opsForValue().set(tokenKey, accessToken, 30, TimeUnit.MINUTES);
         stringRedisTemplate.opsForValue().set(refreshKey, refreshToken, 7, TimeUnit.DAYS);
 
         // ==== 更新场景状态 ====
         stringRedisTemplate.opsForValue().set(
                 WECHAT_TOKEN_PREFIX + sceneId,
-                accessToken + "|" + refreshToken,
+                accessToken + "|" + refreshToken + "|" + user.getRole(),
                 WECHAT_SCENE_TTL_MINUTES,
                 TimeUnit.MINUTES);
         stringRedisTemplate.opsForValue().set(sceneKey, "confirmed", WECHAT_SCENE_TTL_MINUTES, TimeUnit.MINUTES);
@@ -685,8 +692,47 @@ public class UserServiceImpl implements UserService {
         Map<String, String> data = new HashMap<>();
         data.put("accessToken", accessToken);
         data.put("refreshToken", refreshToken);
+        data.put("role", user.getRole());
         data.put("email", email);
         data.put("nickname", nickname);
         return new ResponseUtil(200, "绑定成功，登录中...", data);
+    }
+
+    // ==================== RBAC 角色权限 ====================
+
+    /**
+     * 管理员分页查询所有用户（不含密码）
+     */
+    @Override
+    public Map<String, Object> listUsers(int page, int size) {
+        Page<User> pageParam = new Page<>(page, size);
+        QueryWrapper<User> wrapper = new QueryWrapper<>();
+        wrapper.select("id", "email", "role", "nickname", "avatar");
+        wrapper.orderByAsc("id");
+        userMapper.selectPage(pageParam, wrapper);
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", pageParam.getRecords());
+        result.put("total", pageParam.getTotal());
+        result.put("current", pageParam.getCurrent());
+        result.put("size", pageParam.getSize());
+        return result;
+    }
+
+    /**
+     * 获取当前登录用户信息
+     */
+    @Override
+    public Map<String, Object> getCurrentUser(String email) {
+        User user = userMapper.selectOne(new QueryWrapper<User>().eq("email", email));
+        if (user == null) {
+            return null;
+        }
+        Map<String, Object> info = new HashMap<>();
+        info.put("id", user.getId());
+        info.put("email", user.getEmail());
+        info.put("role", user.getRole());
+        info.put("nickname", user.getNickname());
+        info.put("avatar", user.getAvatar());
+        return info;
     }
 }
