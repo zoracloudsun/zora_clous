@@ -96,7 +96,9 @@ request.interceptors.response.use(
         isRefreshing = false
       }
     }
-    ElMessage.error(error.message || '网络错误')
+    // 优先取后端返回的业务 msg，其次取 Axios 错误消息，兜底"网络错误"
+    const msg = response?.data?.msg || error.message || '网络错误'
+    ElMessage.error(msg)
     return Promise.reject(error)
   },
 )

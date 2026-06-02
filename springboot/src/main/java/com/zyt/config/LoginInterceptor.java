@@ -1,6 +1,7 @@
 package com.zyt.config;
 
 import com.zyt.utils.JwtUtil;
+import com.zyt.utils.ResponseUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -64,7 +65,7 @@ public class LoginInterceptor implements HandlerInterceptor {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType("application/json;charset=UTF-8");
         PrintWriter writer = response.getWriter();
-        writer.write("{\"code\":401,\"msg\":\"" + msg + "\",\"data\":null}");
+        writer.write(ResponseUtil.toJsonError(401, msg));
         writer.flush();
     }
 }

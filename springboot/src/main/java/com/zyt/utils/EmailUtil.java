@@ -1,6 +1,8 @@
 package com.zyt.utils;
 
 import jakarta.annotation.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class EmailUtil {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailUtil.class);
 
     @Resource
     private JavaMailSender mailSender;
@@ -49,8 +53,7 @@ public class EmailUtil {
                         """, code));
                 mailSender.send(message);
             } catch (Exception e) {
-                // 异步发送失败仅打印日志，不影响接口返回
-                e.printStackTrace();
+                log.error("邮件发送失败，收件人: {}", to, e);
             }
         }).start();
     }

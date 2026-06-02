@@ -101,7 +101,41 @@ Controller  →  Service (interface)  →  ServiceImpl  →  Mapper (MyBatis-Plu
 
 - `UserMapper` extends `BaseMapper<User>` — all CRUD is auto-generated, zero XML
 - `UserServiceImpl` contains ALL business logic including Redis operations, WeChat API calls, and email sending
-- `ResponseUtil` is the unified response wrapper: `{ code, msg, data }`
+- `ResponseUtil` is the unified response wrapper: `{ code, msg, data }`, with static factory methods `success()` / `error()` and safe JSON serialization `toJsonError()`
+
+### Error Handling Architecture
+
+**Global exception handling** via `@RestControllerAdvice` (`GlobalExceptionHandler.java`). Exceptions thrown from controllers/services are caught and converted to `ResponseUtil` JSON — no more manual `return new ResponseUtil(code, msg, null)` for error paths.
+
+**Exception hierarchy** (`com.zyt.exception`):
+- `BusinessException(code, msg)` — base class, carries HTTP status code
+- `BadRequestException(msg)` → 400 — validation / business rule failures
+- `UnauthorizedException(msg)` → 401 — auth failures
+- `ForbiddenException(msg)` → 403 — permission denied
+- `NotFoundException(msg)` → 404 — resource not found
+- `RateLimitException(msg)` → 429 — rate limiting
+
+**How errors flow to the client**:
+
+```
+Service throws BadRequestException("邮箱不能为空")
+  → GlobalExceptionHandler @ExceptionHandler(BusinessException.class)
+    → ResponseEntity.status(400).body(ResponseUtil(400, "邮箱不能为空", null))
+      → HTTP 400 JSON → Axios response interceptor
+        → ElMessage.error("邮箱不能为空")
+```
+
+```
+Interceptor (pre-controller) → writeError() via ResponseUtil.toJsonError()
+  → Direct PrintWriter write (bypasses @ControllerAdvice)
+```
+
+**Key rules**:
+- **Service layer**: Can either throw `BusinessException` subclasses (recommended for validation) or return `ResponseUtil` for complex control flow — both patterns coexist and work correctly
+- **Controller layer**: Should remain thin pass-through — never catch exceptions, let `@ControllerAdvice` handle them
+- **Interceptors**: Run before controllers, so their errors bypass `@ControllerAdvice` — they use `ResponseUtil.toJsonError(code, msg)` for safe JSON serialization (Jackson-based, properly escapes special characters)
+- **Catch-all**: `@ExceptionHandler(Exception.class)` logs full stacktrace, returns generic 500 — never exposes exception details to client
+- **Email failures**: Logged via SLF4J `log.error(...)` instead of `e.printStackTrace()`
 
 ### Frontend Data Flow
 

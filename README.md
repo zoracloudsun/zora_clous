@@ -347,7 +347,7 @@ PC 浏览器   手机微信   后端
 
 - [x] 邮箱找回密码
 - [x] 角色权限控制（RBAC）
-- [ ] 全局异常处理（`@ControllerAdvice`）
+- [x] 全局异常处理（`@ControllerAdvice`）
 - [ ] Swagger / Knife4j 接口文档
 - [ ] 单元测试（JUnit 5 + MockMvc）
 - [ ] Docker 容器化（docker-compose 一键启动）

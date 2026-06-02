@@ -7,6 +7,7 @@ import com.zyt.config.WechatConfig;
 import com.zyt.entity.User;
 import com.zyt.mapper.UserMapper;
 import com.zyt.service.UserService;
+import com.zyt.exception.BadRequestException;
 import com.zyt.utils.CaptchaUtil;
 import com.zyt.utils.EmailUtil;
 import com.zyt.utils.JwtUtil;
@@ -112,15 +113,15 @@ public class UserServiceImpl implements UserService {
     @Override
     public ResponseUtil sendCode(String email) {
         if (Objects.isNull(email) || email.trim().isEmpty()) {
-            return new ResponseUtil(400, "邮箱不能为空", null);
+            throw new BadRequestException("邮箱不能为空");
         }
         if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[a-zA-Z]{2,}$")) {
-            return new ResponseUtil(400, "邮箱格式不正确", null);
+            throw new BadRequestException("邮箱格式不正确");
         }
         // 已注册邮箱不再发送验证码，提示直接登录
         User exist = userMapper.selectOne(new QueryWrapper<User>().eq("email", email));
         if (Objects.nonNull(exist)) {
-            return new ResponseUtil(400, "该邮箱已注册，请直接登录", null);
+            throw new BadRequestException("该邮箱已注册，请直接登录");
         }
         // 60秒防刷
         String codeKey = EMAIL_CODE_PREFIX + email;
@@ -128,7 +129,7 @@ public class UserServiceImpl implements UserService {
         if (Objects.nonNull(existingCode)) {
             Long ttl = stringRedisTemplate.getExpire(codeKey);
             if (Objects.nonNull(ttl) && ttl > 240) {
-                return new ResponseUtil(400, "验证码已发送，" + (ttl - 240) + " 秒后可重新获取", null);
+                throw new BadRequestException("验证码已发送，" + (ttl - 240) + " 秒后可重新获取");
             }
         }
         String code = String.format("%06d", (int) (Math.random() * 1000000));
@@ -259,26 +260,26 @@ public class UserServiceImpl implements UserService {
         if (Objects.isNull(email) || email.trim().isEmpty()
                 || Objects.isNull(password) || password.trim().isEmpty()
                 || Objects.isNull(code) || code.trim().isEmpty()) {
-            return new ResponseUtil(400, "邮箱、密码和验证码不能为空", null);
+            throw new BadRequestException("邮箱、密码和验证码不能为空");
         }
         if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[a-zA-Z]{2,}$")) {
-            return new ResponseUtil(400, "邮箱格式不正确", null);
+            throw new BadRequestException("邮箱格式不正确");
         }
         if (password.length() < 6) {
-            return new ResponseUtil(400, "密码不能少于6位", null);
+            throw new BadRequestException("密码不能少于6位");
         }
         // 邮箱验证码
         String codeKey = EMAIL_CODE_PREFIX + email;
         String storedCode = stringRedisTemplate.opsForValue().get(codeKey);
         if (Objects.isNull(storedCode)) {
-            return new ResponseUtil(400, "验证码已过期或未发送，请重新获取", null);
+            throw new BadRequestException("验证码已过期或未发送，请重新获取");
         }
         if (!storedCode.equals(code.trim())) {
-            return new ResponseUtil(400, "验证码不正确", null);
+            throw new BadRequestException("验证码不正确");
         }
         User exist = userMapper.selectOne(new QueryWrapper<User>().eq("email", email));
         if (Objects.nonNull(exist)) {
-            return new ResponseUtil(400, "该邮箱已注册", null);
+            throw new BadRequestException("该邮箱已注册");
         }
         User user = new User();
         user.setEmail(email);

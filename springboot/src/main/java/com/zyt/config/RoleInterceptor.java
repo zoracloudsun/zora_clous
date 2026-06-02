@@ -1,5 +1,6 @@
 package com.zyt.config;
 
+import com.zyt.utils.ResponseUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
@@ -63,7 +64,7 @@ public class RoleInterceptor implements HandlerInterceptor {
         response.setStatus(HttpStatus.FORBIDDEN.value());
         response.setContentType("application/json;charset=UTF-8");
         PrintWriter writer = response.getWriter();
-        writer.write("{\"code\":403,\"msg\":\"" + msg + "\",\"data\":null}");
+        writer.write(ResponseUtil.toJsonError(403, msg));
         writer.flush();
     }
 }
