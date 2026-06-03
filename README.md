@@ -285,6 +285,67 @@ PC 浏览器   手机微信   后端
 
 ---
 
+### 全局异常处理
+
+采用 Spring MVC 标准 `@RestControllerAdvice` 统一捕获所有异常，替代 Service 层手动 `return new ResponseUtil(400, ...)` 的旧模式。
+
+**异常层次结构**：
+
+```
+RuntimeException
+  └── BusinessException（基类，携带 code + msg + data）
+        ├── BadRequestException     → 400 参数校验失败
+        ├── UnauthorizedException   → 401 未认证
+        ├── ForbiddenException      → 403 权限不足
+        ├── NotFoundException       → 404 资源不存在
+        └── RateLimitException      → 429 频率限制
+```
+
+**错误数据流**：
+
+```
+Service 层:
+  throw new BadRequestException("邮箱不能为空")
+       │
+       ▼
+GlobalExceptionHandler:
+  @ExceptionHandler(BusinessException.class)
+  → ResponseEntity.ok(body)   ← HTTP 200，body.code = 400
+       │
+       ▼
+Axios 成功拦截器:
+  if (res.code !== 200) → ElMessage.error("邮箱不能为空")
+```
+
+**关键设计**：
+- 只有 401（`UnauthorizedException`）返回真实 HTTP 401，因为前端 Axios 错误拦截器靠 `response.status === 401` 触发 Token 自动刷新
+- 其他业务异常统一返回 HTTP 200，body.code 为实际错误码，由 Axios 成功拦截器统一提取 `response.data.msg` 显示
+- 拦截器（LoginInterceptor / RoleInterceptor）在 Controller 之前执行，不经过 `@ControllerAdvice`——它们使用 `ResponseUtil.toJsonError()` 安全写入 JSON
+- 兜底 `@ExceptionHandler(Exception.class)` 记录完整堆栈到日志，客户端只看到通用 "服务器内部错误"
+
+---
+
+### Knife4j 接口文档
+
+基于 OpenAPI 3 + Knife4j 4.x 自动生成在线调试文档，访问 `http://localhost:8080/doc.html`。
+
+**技术组合**：`knife4j-openapi3-jakarta-spring-boot-starter` 4.5.0（Spring Boot 3.x Jakarta 版本）
+
+**四大功能分组**（通过 `@Tag` 注解实现）：
+
+| 分组 | 端点 | 说明 |
+|------|:----:|------|
+| 基础认证 | 7 | 验证码、注册、登录、登出、Token 刷新、鉴权探针 |
+| 微信扫码登录 | 5 | 生成二维码、轮询状态、回调（隐藏）、邮箱绑定、发送验证码 |
+| 邮箱找回密码 | 2 | 发送重置码、重置密码 |
+| RBAC 角色权限 | 2 | 管理员用户列表、当前用户信息 |
+
+**全局 Authorize 机制**：右上角填入 accessToken → 所有接口自动携带 `Authorization` header → 在线调试无需每个接口重复填写。使用 `SecurityScheme.Type.APIKEY` 而非 `HTTP (Bearer)`，因为本项目 Token 不需要 "Bearer " 前缀。
+
+**离线文档导出**：Knife4j UI → 文档管理 → 导出 Markdown / HTML / OpenAPI JSON，可提交到项目 Wiki。
+
+---
+
 ## 安全特性
 
 | 层级 | 机制 | 说明 |
@@ -348,7 +409,7 @@ PC 浏览器   手机微信   后端
 - [x] 邮箱找回密码
 - [x] 角色权限控制（RBAC）
 - [x] 全局异常处理（`@ControllerAdvice`）
-- [ ] Swagger / Knife4j 接口文档
+- [x] Swagger / Knife4j 接口文档
 - [ ] 单元测试（JUnit 5 + MockMvc）
 - [ ] Docker 容器化（docker-compose 一键启动）
 - [ ] GitHub Actions CI/CD

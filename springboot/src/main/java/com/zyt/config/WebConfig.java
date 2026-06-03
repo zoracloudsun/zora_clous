@@ -16,6 +16,10 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // Knife4j / Swagger 文档路径（无需认证）
+        String[] swaggerPaths = {"/doc.html", "/webjars/**", "/v3/api-docs/**",
+                "/swagger-ui/**", "/swagger-resources/**", "/favicon.ico"};
+
         registry.addInterceptor(loginInterceptor)
                 .addPathPatterns("/**")
                 .excludePathPatterns("/user/login", "/user/register", "/user/refresh", "/user/send-code",
@@ -23,7 +27,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/user/captcha",
                         "/user/forgot-password/send-code", "/user/forgot-password/reset",
                         "/user/wechat/qrcode", "/user/wechat/check",
-                        "/user/wechat/callback", "/user/wechat/bind-email");
+                        "/user/wechat/callback", "/user/wechat/bind-email")
+                .excludePathPatterns(swaggerPaths);
 
         // RoleInterceptor 在 LoginInterceptor 之后执行，读取其设置的 request attributes
         registry.addInterceptor(roleInterceptor)
@@ -33,6 +38,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/user/captcha",
                         "/user/forgot-password/send-code", "/user/forgot-password/reset",
                         "/user/wechat/qrcode", "/user/wechat/check",
-                        "/user/wechat/callback", "/user/wechat/bind-email");
+                        "/user/wechat/callback", "/user/wechat/bind-email")
+                .excludePathPatterns(swaggerPaths);
     }
 }

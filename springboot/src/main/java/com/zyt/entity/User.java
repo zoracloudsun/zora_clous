@@ -3,12 +3,14 @@ package com.zyt.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 public class User {
     @TableId(value = "id", type = IdType.AUTO)
     private Integer id;
     @TableField(value = "email")
     private String email;
+    @Schema(hidden = true)
     private String password;
 
     // ==================== 微信登录字段 ====================

@@ -251,6 +251,91 @@ data.put("authUrl", "https://open.weixin.qq.com/connect/qrconnect?"
 
 ---
 
+## P2：Knife4j + Spring Boot 3.5.x 兼容性修复
+
+> 修复日期：2026-06-03
+
+### 问题描述
+
+启动后端后访问 `http://localhost:8080/doc.html`，Knife4j UI 主页可以加载，但接口列表不显示（左侧菜单缺少「接口文档」项）。访问 `/v3/api-docs/default` 返回 HTTP 500。
+
+后端控制台报错：
+
+```
+java.lang.NoSuchMethodError: 'void org.springframework.web.method.ControllerAdviceBean.<init>(java.lang.Object)'
+```
+
+### 根本原因
+
+Spring Boot 3.5.x 使用的 Spring Framework 6.2.x 中，`ControllerAdviceBean` 类的构造方法发生了破坏性变更：
+
+| Spring Boot 版本 | `ControllerAdviceBean` 构造方法 |
+|---|---|
+| ≤ 3.3.x (Spring 6.0/6.1) | `ControllerAdviceBean(Object bean)` — 单参数 |
+| ≥ 3.4.x (Spring 6.2+) | `ControllerAdviceBean(String, BeanFactory, ControllerAdvice)` — 三参数 |
+
+Knife4j 4.5.0 内嵌的 `springdoc-openapi` 版本过低，仍然调用已删除的单参数构造方法，导致 `NoSuchMethodError`。
+
+### 修复方案
+
+在 `GlobalExceptionHandler` 上添加 `@Hidden` 注解，告诉 SpringDoc 跳过该类：
+
+```java
+import io.swagger.v3.oas.annotations.Hidden;
+
+@Hidden                    // 告诉 SpringDoc 不扫描此类（避免 ControllerAdviceBean 兼容性问题）
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    // ...
+}
+```
+
+同时移除 `UserController` 中所有方法级 `@Tag` 注解（类级 + 方法级 `@Tag` 在 SpringDoc 内部会产生合并冲突），将所有端点合并到单一 `@Tag(name = "用户认证")` 分组下。
+
+### 修改清单
+
+| 文件 | 修改内容 |
+|------|----------|
+| [`GlobalExceptionHandler.java`](springboot/src/main/java/com/zyt/exception/GlobalExceptionHandler.java) | 添加 `@Hidden` 注解；新增 `NoResourceFoundException` 静默处理（解决 favicon.ico 缺失噪音日志） |
+| [`UserController.java`](springboot/src/main/java/com/zyt/controller/UserController.java) | 移除所有方法级 `@Tag`；合并为单一类级 `@Tag(name = "用户认证")` |
+| [`Knife4jConfig.java`](springboot/src/main/java/com/zyt/config/Knife4jConfig.java) | 新增 `GlobalOpenApiCustomizer` Bean（修复 Authorize 按钮 Token 不注入问题，见下方补充修复） |
+
+### 补充修复：Authorize 按钮填入 Token 后不生效
+
+**问题**：即使 `/v3/api-docs/default` 正常返回、接口列表正常显示，在右上角 Authorize 按钮填入 Token 后，调试需要鉴权的接口（如 `/user/me`）时 `Authorization` header 没有被注入到请求中，返回 401 "未携带 Token，请先登录"。
+
+而 Knife4j 自身的「文档管理 → 全局参数设置」手动添加 `Authorization` header 则能正常工作。
+
+**根因**：Knife4j 不会自动继承 OpenAPI 根级别的 `security` 声明。`Knife4jConfig` 中的 `addSecurityItem()` 只在 OpenAPI JSON 的根级别添加了 security 字段，但 Knife4j 在发起请求时只检查**每个 Operation 自身的 `security` 字段**。所有 Operation 的 security 字段为空 → Knife4j 不注入 Token。
+
+**修复**：在 `Knife4jConfig.java` 中新增 `GlobalOpenApiCustomizer` Bean，SpringDoc 在生成完所有 Operation 后调用它——遍历所有 path 下的 GET/POST/PUT/DELETE 操作，逐个注入 `SecurityRequirement`：
+
+```java
+@Bean
+public GlobalOpenApiCustomizer globalSecurityCustomizer() {
+    return openApi -> {
+        if (openApi.getPaths() == null) return;
+        openApi.getPaths().forEach((path, pathItem) -> {
+            if (pathItem.getGet() != null)
+                pathItem.getGet().addSecurityItem(
+                        new SecurityRequirement().addList("Authorization"));
+            if (pathItem.getPost() != null)
+                pathItem.getPost().addSecurityItem(
+                        new SecurityRequirement().addList("Authorization"));
+            // ... put, delete 同理
+        });
+    };
+}
+```
+
+修复后，每个 Operation 的 OpenAPI JSON 中都会出现 `"security": [{"Authorization": []}]`，Knife4j 识别到后自动注入 Authorize 按钮中保存的 Token。
+
+### 长期方案
+
+等待 Knife4j 官方发布适配 Spring Boot 3.5.x 的新版本（预计 > 4.5.0），或手动升级 springdoc-openapi 到 2.8.x+ 并排除 Knife4j 内置的旧版依赖。届时可以移除 `@Hidden` 注解并恢复方法级 `@Tag` 分组。
+
+---
+
 ## 累计修改文件汇总
 
 | 文件 | P0-1 | P0-2 | P1 微信 |

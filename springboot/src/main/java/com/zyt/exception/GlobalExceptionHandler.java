@@ -1,11 +1,13 @@
 package com.zyt.exception;
 
 import com.zyt.utils.ResponseUtil;
+import io.swagger.v3.oas.annotations.Hidden;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * 注意：拦截器（LoginInterceptor / RoleInterceptor）在请求进入 Controller 之前执行，
  * 其错误响应不经过此处理器，仍由各自的 writeError 方法直接写入 HttpServletResponse。
  */
+@Hidden
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -81,6 +84,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ResponseUtil> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
         return ResponseEntity.ok(ResponseUtil.error(405, "请求方法不支持"));
+    }
+
+    // ==================== 静态资源缺失（favicon.ico 等，无需记录） ====================
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ResponseUtil> handleNoResourceFound(NoResourceFoundException ex) {
+        return ResponseEntity.ok(ResponseUtil.error(404, "资源不存在"));
     }
 
     // ==================== 兜底处理 ====================
