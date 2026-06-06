@@ -8,7 +8,7 @@
 [![MySQL](https://img.shields.io/badge/MySQL-8.x-blue)](https://www.mysql.com/)
 [![Redis](https://img.shields.io/badge/Redis-7.x-red)](https://redis.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![CI](https://github.com/ZoraCloudSun/springboot_vue3/actions/workflows/ci.yml/badge.svg)](https://github.com/ZoraCloudSun/springboot_vue3/actions/workflows/ci.yml)
 
 ---
 
