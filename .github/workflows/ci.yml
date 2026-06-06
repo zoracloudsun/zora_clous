@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================
+  # 后端：Maven 构建 + 运行 171 个单元测试
+  # ============================================================
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+          cache-dependency-path: 'springboot/pom.xml'
+
+      - name: 复制配置文件（防御性措施）
+        run: cp springboot/src/main/resources/application-example.yml springboot/src/main/resources/application.yml
+
+      - name: 运行单元测试
+        run: mvn test -B -f springboot/pom.xml
+
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: springboot/target/surefire-reports/
+          retention-days: 7
+
+  # ============================================================
+  # 前端：npm ci + Vite 生产构建检查
+  # ============================================================
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'web/frontend/package-lock.json'
+
+      - name: 安装依赖
+        run: npm ci
+        working-directory: web/frontend
+
+      - name: 生产构建
+        run: npm run build
+        working-directory: web/frontend
+
+  # ============================================================
+  # Docker：验证多阶段构建（跳过 PR，仅 master push / 手动触发）
+  # ============================================================
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [backend, frontend]
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 构建后端 Docker 镜像
+        run: docker build -t backend:ci ./springboot
+
+      - name: 构建前端 Docker 镜像
+        run: docker build -t frontend:ci ./web/frontend

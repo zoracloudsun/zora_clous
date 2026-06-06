@@ -8,6 +8,7 @@
 [![MySQL](https://img.shields.io/badge/MySQL-8.x-blue)](https://www.mysql.com/)
 [![Redis](https://img.shields.io/badge/Redis-7.x-red)](https://redis.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
 
 ---
 
@@ -147,10 +148,10 @@ docker compose ps
 # 访问
 # 前端:      http://localhost
 # API 文档:   http://localhost/doc.html
-# 健康检查:   http://localhost:8080/actuator/health
+# 健康检查:   http://localhost:18080/actuator/health
 
 # 可选：数据库管理界面
-docker compose --profile debug up -d     # Adminer → http://localhost:8081
+docker compose --profile debug up -d     # Adminer → http://localhost:18081
 
 # 停止
 docker compose down
@@ -460,7 +461,7 @@ Axios 成功拦截器:
 - [x] Swagger / Knife4j 接口文档
 - [x] 单元测试（JUnit 5 + MockMvc）— 171 个测试，8 个测试类，覆盖全链路
 - [x] Docker 容器化（docker-compose 一键启动）
-- [ ] GitHub Actions CI/CD
+- [x] GitHub Actions CI/CD
 
 ---
 
