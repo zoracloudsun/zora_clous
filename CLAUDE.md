@@ -1,7 +1,11 @@
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
+## 每次对话时（每次新增功能和修bug），必须遵守一下要求：
+- 代码注释写好
+- 接口文档及时更新
+- ​测试用例要编写
+- ​项目中相应 md 文件要更新
 ---
 
 ## Build & Run
@@ -16,7 +20,7 @@ docker compose up -d --build
 docker compose ps
 
 # Access: http://localhost (frontend), http://localhost/doc.html (API docs),
-#         http://localhost:8080/actuator/health (health check)
+#         http://localhost:18080/actuator/health (health check)
 
 # Optional: Adminer DB management UI
 docker compose --profile debug up -d   # → http://localhost:8081

@@ -1,10 +1,18 @@
 package com.zyt.utils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.oas.annotations.media.Schema;
 
+@Schema(description = "统一 API 响应包装")
 public class ResponseUtil {
+    @Schema(description = "状态码：200 成功，400 客户端错误，401 未授权，403 权限不足，429 请求过于频繁，500 服务器错误",
+            example = "200")
     private Integer code;
+
+    @Schema(description = "提示信息", example = "success")
     private String msg;
+
+    @Schema(description = "响应数据（具体类型取决于接口）")
     private Object data;
 
     // Jackson 单例，用于 toJsonError 安全序列化（线程安全）

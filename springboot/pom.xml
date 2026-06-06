@@ -102,6 +102,20 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+
+        <!-- ==================== AI 扩展：WebFlux + LangChain4j ==================== -->
+        <!-- WebFlux：提供 Flux<String> 支持 SSE 流式响应 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!-- LangChain4j OpenAI（兼容 DeepSeek，API 格式一致） -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+            <version>1.15.0</version>
+        </dependency>
     </dependencies>
 
     <build>

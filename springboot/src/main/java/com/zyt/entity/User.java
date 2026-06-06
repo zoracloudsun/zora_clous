@@ -5,24 +5,31 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+@Schema(description = "用户实体")
 public class User {
     @TableId(value = "id", type = IdType.AUTO)
+    @Schema(description = "用户 ID（自增主键）", example = "1")
     private Integer id;
+
     @TableField(value = "email")
+    @Schema(description = "邮箱（唯一，用于登录）", example = "user@example.com")
     private String email;
+
     @Schema(hidden = true)
     private String password;
 
     // ==================== 微信登录字段 ====================
-    /** 微信 openid（每个微信号对每个应用唯一） */
+    @Schema(description = "微信 openid（每个微信号对每个应用唯一）", example = "o6_bmjrPTlm6_2sgVt7hMZOPfL2M")
     private String openid;
-    /** 微信昵称 */
+
+    @Schema(description = "微信昵称", example = "张三")
     private String nickname;
-    /** 微信头像 URL */
+
+    @Schema(description = "微信头像 URL", example = "https://thirdwx.qlogo.cn/mmopen/...")
     private String avatar;
 
     // ==================== RBAC 角色权限 ====================
-    /** 用户角色：user 普通用户, admin 管理员 */
+    @Schema(description = "用户角色：user 普通用户, admin 管理员", example = "user", allowableValues = {"user", "admin"})
     private String role;
 
     public User() {}

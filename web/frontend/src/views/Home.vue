@@ -6,6 +6,14 @@
         <div class="header-right">
           <span class="welcome">欢迎回来</span>
           <el-button
+            type="success"
+            plain
+            size="default"
+            @click="$router.push('/chat')"
+          >
+            AI 对话
+          </el-button>
+          <el-button
             v-if="role === 'admin'"
             type="primary"
             plain

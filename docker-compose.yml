@@ -17,6 +17,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./springboot/src/main/resources/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./springboot/src/main/resources/db/migration/V2__chat_tables.sql:/docker-entrypoint-initdb.d/02-chat-tables.sql:ro
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -82,6 +83,10 @@ services:
       WECHAT_APP_ID: ${WECHAT_APP_ID:-}
       WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
       WECHAT_CALLBACK_URL: ${WECHAT_CALLBACK_URL:-}
+      # AI（DeepSeek）
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com/v1}
+      AI_MODEL_NAME: ${AI_MODEL_NAME:-deepseek-chat}
       # JVM 调优
       JAVA_OPTS: "-Xms256m -Xmx512m"
     ports:

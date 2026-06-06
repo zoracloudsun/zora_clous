@@ -2,7 +2,6 @@ package com.zyt.config;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
@@ -35,6 +34,7 @@ public class Knife4jConfig {
                                 - **微信扫码登录**：真实 OAuth 2.0、已绑定直接登录、新用户邮箱绑定
                                 - **邮箱找回密码**：验证码重置密码、踢掉所有设备
                                 - **RBAC 角色权限**：user/admin 双角色、管理员用户管理
+                                - **AI 对话**：基于 DeepSeek 的 SSE 流式对话、会话管理、回收站
 
                                 ## 鉴权说明
                                 登录成功后获取 accessToken，在右上角 **Authorize** 按钮填入即可调试所有接口。

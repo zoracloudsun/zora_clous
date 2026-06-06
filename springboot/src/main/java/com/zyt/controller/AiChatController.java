@@ -1,0 +1,137 @@
+package com.zyt.controller;
+
+import com.zyt.service.AiChatService;
+import com.zyt.utils.ResponseUtil;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * AI 对话控制器
+ * 提供 SSE 流式对话和对话管理 API
+ */
+@RestController
+@RequestMapping("/ai")
+@Tag(name = "AI 对话", description = "基于 DeepSeek 的 AI 对话系统：SSE 流式对话、会话管理、回收站")
+public class AiChatController {
+
+    /** P1-2: 用户消息最大长度（约 2000 中文字） */
+    private static final int MAX_MESSAGE_LENGTH = 4000;
+
+    @Resource
+    private AiChatService chatService;
+
+    @Operation(summary = "SSE 流式对话", description = "发送消息并以 SSE (text/event-stream) 流式返回 AI 回复。" +
+            "每个 token 通过 SSE data 事件逐字推送，支持传入 conversationId 继续已有对话，不传则自动创建新对话。" +
+            "消息长度限制 4000 字符（约 2000 中文字）")
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> streamChat(
+            @RequestBody Map<String, Object> body,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        String message = (String) body.get("message");
+        Long conversationId = body.get("conversationId") != null
+                ? Long.valueOf(body.get("conversationId").toString())
+                : null;
+
+        // P1-2: 消息非空 + 长度校验
+        if (message == null || message.isBlank()) {
+            return Flux.error(new IllegalArgumentException("消息不能为空"));
+        }
+        if (message.length() > MAX_MESSAGE_LENGTH) {
+            return Flux.error(new IllegalArgumentException(
+                    "消息长度不能超过 " + MAX_MESSAGE_LENGTH + " 个字符"));
+        }
+
+        return chatService.streamChat(email, message, conversationId);
+    }
+
+    @Operation(summary = "获取对话列表", description = "获取当前用户所有未删除的对话，按最近更新时间倒序排列")
+    @GetMapping("/conversations")
+    public ResponseUtil listConversations(
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        List<Map<String, Object>> conversations = chatService.listConversations(email);
+        return ResponseUtil.success(conversations);
+    }
+
+    @Operation(summary = "新建对话", description = "创建一个新的 AI 对话会话，可选传入自定义标题，不传则使用默认标题「新对话」")
+    @PostMapping("/conversations")
+    public ResponseUtil createConversation(
+            @RequestBody Map<String, String> body,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        String title = body.get("title");
+        Map<String, Object> result = chatService.createNewConversation(email, title);
+        return ResponseUtil.success(result);
+    }
+
+    @Operation(summary = "获取对话消息历史", description = "获取指定对话的所有消息列表，包含用户消息和 AI 回复，按时间正序排列")
+    @GetMapping("/conversations/{id}")
+    public ResponseUtil getMessages(
+            @Parameter(description = "对话 ID", required = true, example = "1")
+            @PathVariable Long id,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        List<Map<String, Object>> messages = chatService.getMessages(email, id);
+        return ResponseUtil.success(messages);
+    }
+
+    @Operation(summary = "删除对话（移至回收站）", description = "软删除指定对话，对话及其消息移至回收站，30 天后可永久删除")
+    @DeleteMapping("/conversations/{id}")
+    public ResponseUtil deleteConversation(
+            @Parameter(description = "对话 ID", required = true, example = "1")
+            @PathVariable Long id,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        chatService.deleteConversation(email, id);
+        return ResponseUtil.success(null, "已移至回收站");
+    }
+
+    @Operation(summary = "获取回收站列表", description = "获取当前用户已删除（30 天内）的对话列表，可恢复或永久删除")
+    @GetMapping("/conversations/trash")
+    public ResponseUtil listDeletedConversations(
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        List<Map<String, Object>> conversations = chatService.listDeletedConversations(email);
+        return ResponseUtil.success(conversations);
+    }
+
+    @Operation(summary = "恢复已删除对话", description = "将回收站中的对话恢复到正常状态，可继续对话")
+    @PostMapping("/conversations/{id}/restore")
+    public ResponseUtil restoreConversation(
+            @Parameter(description = "对话 ID", required = true, example = "1")
+            @PathVariable Long id,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        chatService.restoreConversation(email, id);
+        return ResponseUtil.success(null, "恢复成功");
+    }
+
+    @Operation(summary = "永久删除对话", description = "从回收站永久删除对话及其所有消息，此操作不可撤销")
+    @DeleteMapping("/conversations/{id}/permanent")
+    public ResponseUtil permanentDeleteConversation(
+            @Parameter(description = "对话 ID", required = true, example = "1")
+            @PathVariable Long id,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        chatService.permanentDeleteConversation(email, id);
+        return ResponseUtil.success(null, "已永久删除");
+    }
+}
