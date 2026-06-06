@@ -14,7 +14,7 @@
 
 ## 项目简介
 
-一套**生产级**前后端分离的用户注册、登录、鉴权系统，涵盖从图形验证码、邮箱验证、JWT 双 Token、暴力破解防护到真实微信 OAuth 扫码登录的完整认证闭环。适合作为 Spring Boot + Vue3 全栈学习项目或毕设/实习项目的基础框架。
+一套**生产级**前后端分离的用户注册、登录、鉴权系统，涵盖从图形验证码、邮箱验证、JWT 双 Token、暴力破解防护到真实微信 OAuth 扫码登录的完整认证闭环。适合作为 Spring Boot + Vue3 全栈学习项目的基础框架。
 
 - **后端**：Spring Boot 3.5.11 + MyBatis-Plus 3.5.12 + MySQL + Redis + Spring Security + JJWT 0.12 + JavaMail
 - **前端**：Vue 3.5 + Vite 8 + Element Plus 2.14 + Vue Router 4 + Axios + qrcode
@@ -132,8 +132,8 @@
 ### 1. 克隆项目
 
 ```bash
-git clone <repo-url>
-cd Front-end\ and\ back-end\ separation\ project
+git clone https://github.com/ZoraCloudSun/springboot_vue3
+cd your_project_name
 ```
 
 ### 2. 一键启动（Docker Compose，推荐）
