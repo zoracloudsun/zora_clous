@@ -45,7 +45,7 @@ mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     map-underscore-to-camel-case: true
-  type-aliases-package: com.zyt.entity
+  type-aliases-package: com.zora.entity
 
 jwt:
   secret: YOUR_JWT_SECRET_KEY_MUST_BE_AT_LEAST_32_CHARACTERS
