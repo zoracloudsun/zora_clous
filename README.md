@@ -67,7 +67,8 @@
 | 🔢 向量嵌入 | OpenAI 兼容 Embedding API（支持 OpenAI / 硅基流动 / Ollama） |
 | 🔍 向量检索 | 余弦相似度检索，内存向量库 + MySQL 持久化 |
 | 🔄 启动重建 | 应用重启自动从 MySQL 重建向量索引 |
-| 🗂️ 知识库管理 | 卡片列表、文档表格、处理状态轮询、检索测试面板、软删除 |
+| 🗂️ 知识库管理 | 卡片列表、文档表格、处理状态轮询、检索测试面板 |
+| ♻️ 两级回收站 | 知识库级回收站（全局）+ 文档级回收站（按知识库），支持恢复（自动重嵌入向量）和永久删除（清理文件/向量/DB） |
 
 ---
 
@@ -182,7 +183,7 @@ cd springboot
 mvn spring-boot:run
 # → http://localhost:8080
 
-# 运行单元测试（196 个测试，~10 秒）
+# 运行单元测试（212 个测试，~10 秒）
 mvn test
 ```
 
@@ -219,101 +220,135 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 ├── springboot/                              # 后端 Spring Boot 工程
 │   ├── pom.xml                              # Maven 配置
 │   ├── Dockerfile                           # 多阶段构建（Maven → JRE）
-│   └── src/main/
-│       ├── java/com/zyt/
-│       │   ├── AppStart.java                # 启动类
-│       │   ├── config/                      # 配置类
-│       │   │   ├── AiConfig.java            # LangChain4j 流式模型配置
-│       │   │   ├── RagConfig.java           # Embedding 模型 + 向量存储
-│       │   │   ├── Knife4jConfig.java       # OpenAPI 3 文档配置
-│       │   │   ├── SecurityConfig.java      # Spring Security（仅 BCrypt）
-│       │   │   ├── WebConfig.java           # 拦截器注册 + CORS
-│       │   │   ├── LoginInterceptor.java    # JWT Token 校验
-│       │   │   ├── RoleInterceptor.java     # RBAC 角色校验
-│       │   │   ├── MyConfig.java            # MyBatis-Plus 分页插件
-│       │   │   └── WechatConfig.java        # 微信 OAuth 配置
-│       │   ├── controller/                  # REST 控制器
-│       │   │   ├── AiChatController.java    # AI 对话 + SSE 流式 + RAG 对话
-│       │   │   ├── RagController.java       # RAG 知识库 CRUD（9 个端点）
-│       │   │   └── UserController.java      # 用户认证（16 个端点）
-│       │   ├── service/                     # 业务逻辑
-│       │   │   ├── AiChatService.java       # AI 对话接口
-│       │   │   ├── RagService.java          # 知识库 CRUD + 检索
-│       │   │   ├── RagProcessingService.java # 文档处理管道 + 启动重建
-│       │   │   ├── UserService.java         # 用户认证接口
-│       │   │   └── impl/                    # 实现类
-│       │   │       ├── AiChatServiceImpl.java    # AI 对话 + RAG 上下文注入
-│       │   │       ├── RagServiceImpl.java       # 知识库业务（~340 行）
-│       │   │       ├── RagProcessingServiceImpl.java # Tika 解析 + 分块 + Embedding
-│       │   │       ├── SimpleEmbeddingStore.java  # 余弦相似度向量存储
-│       │   │       └── UserServiceImpl.java       # 用户认证完整业务
-│       │   ├── entity/                      # 实体类
-│       │   │   ├── User.java                # 用户（id, email, password, openid, role...）
-│       │   │   ├── ChatConversation.java    # 对话会话
-│       │   │   ├── ChatMessage.java         # 对话消息
-│       │   │   ├── KnowledgeBase.java       # 知识库
-│       │   │   ├── KbDocument.java          # 文档（含处理状态）
-│       │   │   └── KbChunk.java             # 文本块
-│       │   ├── mapper/                      # MyBatis-Plus Mapper
-│       │   │   ├── UserMapper.java
-│       │   │   ├── ChatConversationMapper.java
-│       │   │   ├── ChatMessageMapper.java
-│       │   │   ├── KnowledgeBaseMapper.java
-│       │   │   ├── KbDocumentMapper.java
-│       │   │   └── KbChunkMapper.java
-│       │   ├── exception/                   # 全局异常处理
-│       │   │   └── GlobalExceptionHandler.java
-│       │   └── utils/                       # 工具类
-│       │       ├── JwtUtil.java             # JWT 生成/解析/类型校验
-│       │       ├── CaptchaUtil.java         # 图形验证码生成（AWT）
-│       │       ├── EmailUtil.java           # 163邮箱 SMTP 异步发送
-│       │       ├── WechatUtil.java          # 微信 API 调用
-│       │       ├── ResponseUtil.java        # 统一响应体
-│       │       ├── FileTypeUtil.java        # 文件类型检测 + 大小校验
-│       │       └── TextSplitterUtil.java    # 递归文本分割器
-│       └── resources/
-│           ├── application.yml              # 应用配置
-│           ├── init.sql                     # 数据库初始化
-│           └── db/migration/                # 数据库迁移
-│               ├── V2__chat_tables.sql      # AI 对话表
-│               └── V3__rag_tables.sql       # RAG 知识库/文档/块表
-│   └── src/test/                            # 单元测试（196 个，JUnit 5 + Mockito + MockMvc）
-│       └── java/com/zyt/
-│           ├── utils/                       # 工具类测试
-│           ├── service/                     # Service 层测试（含 RAG）
-│           ├── config/                      # 拦截器测试
-│           ├── controller/                  # Controller 测试（含 RAG）
-│           └── exception/                   # 异常处理测试
-├── web/frontend/                            # 前端 Vue 3 + Vite 工程
-│   ├── Dockerfile                           # 多阶段构建（Node → Nginx）
-│   ├── nginx.conf                           # Nginx 配置（SPA + SSE + API 代理）
-│   ├── vite.config.js                       # Vite 配置（代理 + 按需导入）
 │   └── src/
-│       ├── main.js                          # 入口
+│       ├── main/
+│       │   ├── java/com/zyt/
+│       │   │   ├── AppStart.java            # 启动类（@MapperScan + @EnableScheduling）
+│       │   │   ├── config/                  # 配置类（12 个）
+│       │   │   │   ├── AiConfig.java        # LangChain4j 流式模型 + Embedding 配置
+│       │   │   │   ├── RagConfig.java       # Embedding 模型 + SimpleEmbeddingStore Bean
+│       │   │   │   ├── Knife4jConfig.java   # OpenAPI 3 文档 + SecurityRequirement 注入
+│       │   │   │   ├── SecurityConfig.java  # Spring Security（仅 BCrypt，其余禁用）
+│       │   │   │   ├── WebConfig.java       # 拦截器注册 + CORS 配置
+│       │   │   │   ├── LoginInterceptor.java    # JWT Token 校验 + Redis 单设备验证
+│       │   │   │   ├── RoleInterceptor.java     # RBAC 角色校验（@RequireRole）
+│       │   │   │   ├── RequireRole.java     # 自定义角色注解（@RequireRole("admin")）
+│       │   │   │   ├── MyConfig.java        # MyBatis-Plus 分页插件
+│       │   │   │   ├── WechatConfig.java    # 微信 OAuth 配置（@Value 注入）
+│       │   │   │   ├── CleanupTask.java     # 定时清理任务（@Scheduled）
+│       │   │   │   └── SwaggerCompatController.java  # Swagger JSON 兼容端点
+│       │   │   ├── controller/              # REST 控制器（3 个，共 32+ 端点）
+│       │   │   │   ├── UserController.java  # 用户认证（16 个端点）
+│       │   │   │   ├── AiChatController.java    # AI 对话 + SSE 流式 + RAG 对话
+│       │   │   │   └── RagController.java   # RAG 知识库 CRUD（16 个端点）
+│       │   │   ├── service/                 # 业务逻辑层
+│       │   │   │   ├── UserService.java     # 用户认证接口
+│       │   │   │   ├── AiChatService.java   # AI 对话接口
+│       │   │   │   ├── RagService.java      # 知识库 CRUD + 检索 + 两级回收站
+│       │   │   │   ├── RagProcessingService.java  # 文档处理管道 + 启动重建
+│       │   │   │   └── impl/                # 实现类
+│       │   │   │       ├── UserServiceImpl.java       # 用户认证完整业务（Redis + 邮件 + 微信）
+│       │   │   │       ├── AiChatServiceImpl.java     # AI 对话 + RAG 上下文注入
+│       │   │   │       ├── RagServiceImpl.java        # 知识库业务 + 两级回收站（~790 行）
+│       │   │   │       ├── RagProcessingServiceImpl.java  # Tika 解析 + 分块 + Embedding + 启动重建
+│       │   │   │       └── SimpleEmbeddingStore.java   # 自实现余弦相似度内存向量存储
+│       │   │   ├── entity/                  # 实体类（MyBatis-Plus @TableName）
+│       │   │   │   ├── User.java            # 用户（id, email, password, openid, role）
+│       │   │   │   ├── ChatConversation.java # 对话会话
+│       │   │   │   ├── ChatMessage.java     # 对话消息
+│       │   │   │   ├── KnowledgeBase.java   # 知识库（支持软删除）
+│       │   │   │   ├── KbDocument.java      # 文档（含处理状态机）
+│       │   │   │   └── KbChunk.java         # 文本块（持久化用于向量重建）
+│       │   │   ├── mapper/                  # MyBatis-Plus Mapper（BaseMapper 免写 SQL）
+│       │   │   │   ├── UserMapper.java
+│       │   │   │   ├── ChatConversationMapper.java
+│       │   │   │   ├── ChatMessageMapper.java
+│       │   │   │   ├── KnowledgeBaseMapper.java
+│       │   │   │   ├── KbDocumentMapper.java
+│       │   │   │   └── KbChunkMapper.java
+│       │   │   ├── exception/               # 异常体系（7 个类）
+│       │   │   │   ├── BusinessException.java    # 基类（携带 code + msg）
+│       │   │   │   ├── BadRequestException.java  # 400 参数校验失败
+│       │   │   │   ├── UnauthorizedException.java # 401 未认证
+│       │   │   │   ├── ForbiddenException.java   # 403 权限不足
+│       │   │   │   ├── NotFoundException.java    # 404 资源不存在
+│       │   │   │   ├── RateLimitException.java   # 429 频率限制
+│       │   │   │   └── GlobalExceptionHandler.java # @RestControllerAdvice 全局异常捕获
+│       │   │   └── utils/                   # 工具类（7 个）
+│       │   │       ├── JwtUtil.java         # JWT 生成/解析/类型校验（HMAC-SHA256）
+│       │   │       ├── CaptchaUtil.java     # 图形验证码生成（Java AWT）
+│       │   │       ├── EmailUtil.java       # 163邮箱 SMTP 异步发送
+│       │   │       ├── WechatUtil.java      # 微信 OAuth API 调用 + DTO
+│       │   │       ├── ResponseUtil.java    # 统一响应体 { code, msg, data }
+│       │   │       ├── FileTypeUtil.java    # 文件类型检测 + 大小校验
+│       │   │       └── TextSplitterUtil.java # 递归文本分割器（800 字符/块）
+│       │   └── resources/
+│       │       ├── application.yml          # 应用配置（数据源/Redis/AI/微信/RAG）
+│       │       ├── application-example.yml  # 配置示例模板
+│       │       ├── init.sql                 # 数据库初始化（建表 + 索引）
+│       │       └── db/migration/            # 数据库迁移脚本
+│       │           ├── DB_MIGRATION.sql     # 完整迁移（所有表）
+│       │           ├── V2__chat_tables.sql  # AI 对话表（conversation + message）
+│       │           └── V3__rag_tables.sql   # RAG 知识库/文档/块表
+│       └── test/                            # 单元测试（212 个，JUnit 5 + Mockito + MockMvc）
+│           ├── resources/
+│           │   └── application.yml          # 测试配置（H2 + 占位凭证）
+│           └── java/com/zyt/
+│               ├── utils/                   # 工具类测试（3 个）
+│               │   ├── ResponseUtilTest.java
+│               │   ├── CaptchaUtilTest.java
+│               │   └── JwtUtilTest.java
+│               ├── service/                 # Service 层测试（3 个）
+│               │   ├── UserServiceImplTest.java
+│               │   ├── RagServiceImplTest.java
+│               │   └── EmbeddingDebugTest.java
+│               ├── config/                  # 拦截器测试（3 个）
+│               │   ├── LoginInterceptorTest.java
+│               │   ├── RoleInterceptorTest.java
+│               │   └── SwaggerCompatControllerTest.java
+│               ├── controller/              # Controller 测试（2 个）
+│               │   ├── UserControllerTest.java
+│               │   └── RagControllerTest.java
+│               └── exception/               # 异常处理测试（1 个）
+│                   └── GlobalExceptionHandlerTest.java
+├── web/frontend/                            # 前端 Vue 3 + Vite 工程
+│   ├── package.json                         # 依赖管理
+│   ├── vite.config.js                       # Vite 配置（代理 + Element Plus 按需导入）
+│   ├── index.html                           # HTML 入口
+│   ├── Dockerfile                           # 多阶段构建（Node → Nginx）
+│   ├── nginx.conf                           # Nginx 配置（SPA 路由 + SSE 代理 + API 转发）
+│   └── src/
+│       ├── main.js                          # Vue 应用入口
 │       ├── App.vue                          # 根组件
-│       ├── style.css                        # 全局样式 + 响应式
-│       ├── views/                           # 页面组件
-│       │   ├── Login.vue                    # 登录页（密码 + 微信双Tab）
-│       │   ├── Register.vue                 # 注册页
-│       │   ├── Home.vue                     # 首页（认证系统 + AI + 知识库入口）
-│       │   ├── Chat.vue                     # AI 对话页（含 RAG 开关 + 知识库选择器）
-│       │   └── KnowledgeBase.vue            # 知识库管理页（~320 行）
-│       ├── api/                             # API 封装
-│       │   ├── index.js                     # Axios 实例 + 拦截器（自动刷新 Token）
+│       ├── style.css                        # 全局样式 + 响应式布局
+│       ├── views/                           # 页面组件（7 个）
+│       │   ├── Home.vue                     # 首页（认证系统 + AI + 知识库功能展示）
+│       │   ├── Login.vue                    # 登录页（密码登录 + 微信扫码双 Tab）
+│       │   ├── Register.vue                 # 注册页（邮箱验证码注册）
+│       │   ├── ForgotPassword.vue           # 找回密码页（验证码 + 重置）
+│       │   ├── Chat.vue                     # AI 对话页（SSE 流式 + RAG 开关 + 知识库选择）
+│       │   ├── KnowledgeBase.vue            # 知识库管理页（卡片 + 文档表格 + 两级回收站）
+│       │   └── Admin.vue                    # 管理员页面（用户管理）
+│       ├── api/                             # API 封装层
+│       │   ├── index.js                     # Axios 实例 + 请求/响应拦截器（自动刷新 Token）
 │       │   ├── user.js                      # 用户认证 API（12 个函数）
-│       │   ├── ai.js                        # AI 对话 API（含 SSE 流式）
-│       │   └── rag.js                       # RAG 知识库 API
-│       ├── router/index.js                  # 路由配置 + 导航守卫
-│       └── utils/token.js                   # localStorage Token 存取
-├── docker-compose.yml                       # Docker 容器编排（5 服务一键启动）
-├── .env                                     # 环境变量（端口、密码、API Key）
-├── DB_MIGRATION.sql                         # 数据库迁移脚本
-├── P0_SECURITY_FIX.md                       # P0 安全修复文档
+│       │   ├── ai.js                        # AI 对话 API（含 SSE 流式 + 对话管理）
+│       │   └── rag.js                       # RAG 知识库 API（CRUD + 上传 + 回收站）
+│       ├── router/
+│       │   └── index.js                     # 路由配置 + beforeEach 导航守卫
+│       └── utils/
+│           └── token.js                     # localStorage Token 存取（双 Token）
+├── .github/                                 # GitHub Actions CI/CD 工作流
+├── docker-compose.yml                       # Docker 容器编排（MySQL + Redis + Backend + Nginx）
+├── .env                                     # 环境变量（数据库密码、JWT 密钥、API Key）
+├── CLAUDE.md                                # 项目架构与开发规范（Claude Code 指南）
+├── P0_SECURITY_FIX.md                       # P0 安全修复文档（Token 类型校验 + 暴力破解防护）
 ├── P1_SECURITY_FIX.md                       # P1 安全修复文档
-├── WECHAT_SETUP_GUIDE.md                    # 微信扫码登录配置指南
-├── 项目构建教程.md                           # 用户认证系统 28 步构建教程
+├── WECHAT_SETUP_GUIDE.md                    # 微信扫码登录完整配置指南
+├── 项目构建教程1.md                          # 用户认证系统 28 步构建教程
 ├── 项目构建教程2.md                          # AI 对话 + RAG 知识库详细实现
-└── CLAUDE.md                                # 项目架构与开发规范
+├── README1.md                               # README 历史版本
+└── README2.md                               # README 历史版本
 ```
 
 ---
@@ -384,22 +419,22 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 ### 整体架构
 
 ```
-┌──────────────────┐     SSE/JSON/HTTP     ┌───────────────────┐     OpenAI API     ┌───────────┐
-│    Vue 3 前端      │ ←──────────────────→ │   Spring Boot 后端  │ ←───────────────→ │  DeepSeek │
-│                    │     Nginx 代理        │                    │     HTTPS         │    API    │
-│  • Login/Register  │                      │  • 用户认证 (JWT)   │                   │           │
-│  • Chat.vue        │                      │  • AI 对话 (LLM)   │                   │           │
-│  • KnowledgeBase   │                      │  • RAG 知识库       │                   │           │
-│  • Home.vue        │                      │  • 全局异常处理     │                   │           │
+┌────────────────────┐     SSE/JSON/HTTP    ┌───────────────────┐     OpenAI API   ┌────────────┐
+│    Vue 3 前端      │ ←───────────── ────→ │  Spring Boot 后端 │ ←───────────────→ │  DeepSeek │
+│                    │     Nginx 代理       │                   │     HTTPS         │    API    │
+│  • Login/Register  │                      │  • 用户认证 (JWT) │                   │           │
+│  • Chat.vue        │                      │  • AI 对话 (LLM)  │                   │           │
+│  • KnowledgeBase   │                      │  • RAG 知识库     │                   │           │
+│  • Home.vue        │                      │  • 全局异常处理    │                   │           │
 └────────┬───────────┘                      └─────────┬─────────┘                   └───────────┘
          │                                            │                                  │
          │ localStorage                               │ MySQL (用户/对话/消息/知识库)      │ Embedding API
          │ (JWT Token)                                │ Redis (Token/验证码/状态)         │ (OpenAI 兼容)
          ▼                                            ▼                                  ▼
 ┌──────────────────┐                      ┌───────────────────┐                   ┌───────────┐
-│    浏览器          │                      │     数据库          │                   │ Embedding │
+│    浏览器        │                       │     数据库        │                   │ Embedding │
 └──────────────────┘                      └───────────────────┘                   │  Service  │
-                                                                                   └───────────┘
+                                                                                  └───────────┘
 ```
 
 ### 认证鉴权链路
@@ -552,7 +587,7 @@ RuntimeException
 
 ## 测试
 
-**框架**：JUnit 5 + Mockito + Spring MockMvc (standalone setup)，196 个测试，纯单元测试 — 无需 MySQL/Redis/网络，CI 就绪。
+**框架**：JUnit 5 + Mockito + Spring MockMvc (standalone setup)，212 个测试，纯单元测试 — 无需 MySQL/Redis/网络，CI 就绪。
 
 ```bash
 cd springboot
@@ -618,7 +653,7 @@ AI_MODEL_NAME=your-model-name
 - [x] 自实现余弦相似度向量存储
 - [x] RAG 检索增强生成 + 知识库管理界面
 - [x] 启动时向量索引自动重建
-- [x] 196 个单元测试（新增 12 个 RAG 测试）
+- [x] 212 个单元测试（含 RAG 知识库 + 两级回收站测试）
 
 ### 🔜 Phase 3：AI Agent 智能体
 

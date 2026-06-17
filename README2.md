@@ -22,7 +22,8 @@
 | 🔐 认证保护 | 所有 AI 接口需 JWT 登录，复用现有拦截器链 |
 | 📚 RAG 知识库 | 上传 PDF/DOCX/TXT/MD → 自动解析分块 → 向量嵌入 → 检索增强生成 |
 | 🔍 向量检索 | OpenAI 兼容 Embedding API + 余弦相似度检索，内存向量库 + MySQL 持久化 |
-| 📄 文档管理 | 知识库卡片列表、文档上传、处理状态轮询、检索测试面板、软删除 |
+| 📄 文档管理 | 知识库卡片列表、文档上传、处理状态轮询、检索测试面板 |
+| ♻️ 两级回收站 | 知识库级回收站（全局）+ 文档级回收站（按知识库），支持恢复（自动重嵌入向量）和永久删除（清理文件/向量/DB） |
 | 🔄 启动重建 | 应用重启自动从 MySQL kb_chunk 表重建向量索引，无需额外基础设施 |
 
 ---
@@ -274,15 +275,15 @@ springboot/
 │   │   └── SecurityConfig.java        # Spring Security（仅 BCrypt）
 │   ├── controller/
 │   │   ├── AiChatController.java      # AI 对话 REST API + SSE（含 RAG 对话）
-│   │   ├── RagController.java         # RAG 知识库 REST API（9 个端点）
+│   │   ├── RagController.java         # RAG 知识库 REST API（16 个端点）
 │   │   └── UserController.java        # 用户认证 API
 │   ├── service/
 │   │   ├── AiChatService.java         # AI 对话核心逻辑（含 RAG 流式对话）
-│   │   ├── RagService.java            # 知识库 CRUD + 检索 + 文档管理
+│   │   ├── RagService.java            # 知识库 CRUD + 检索 + 文档管理 + 两级回收站
 │   │   ├── RagProcessingService.java  # 文档处理管道 + 启动向量重建
 │   │   ├── impl/
 │   │   │   ├── AiChatServiceImpl.java # AI 对话实现（流式 + RAG 上下文注入）
-│   │   │   ├── RagServiceImpl.java    # 知识库业务逻辑（~340 行）
+│   │   │   ├── RagServiceImpl.java    # 知识库业务 + 回收站（~790 行）
 │   │   │   ├── RagProcessingServiceImpl.java # Tika 解析 + 分块 + Embedding
 │   │   │   └── SimpleEmbeddingStore.java     # 余弦相似度向量存储
 │   │   └── UserService.java
@@ -315,7 +316,7 @@ web/frontend/
 ├── src/
 │   ├── views/
 │   │   ├── Chat.vue                   # AI 对话页面（含 RAG 开关 + 知识库选择器）
-│   │   ├── KnowledgeBase.vue          # 知识库管理页面（~320 行）
+│   │   ├── KnowledgeBase.vue          # 知识库管理 + 两级回收站（~780 行）
 │   │   ├── Home.vue                   # 首页（含 AI 入口 + 知识库入口）
 │   │   ├── Login.vue                  # 登录页
 │   │   └── Register.vue               # 注册页
@@ -399,7 +400,7 @@ private static final String SYSTEM_PROMPT =
 - RAG 检索增强生成（System Prompt 注入）
 - 知识库管理界面（卡片列表 + 文档表格 + 检索测试面板）
 - 启动时 MySQL → 向量索引自动重建
-- 196 个单元测试（新增 12 个 RAG 测试）
+- 212 个单元测试（含 RAG 知识库 + 两级回收站测试）
 
 ### 🔜 Phase 3：AI Agent 智能体
 

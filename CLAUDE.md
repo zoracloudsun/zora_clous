@@ -1,11 +1,16 @@
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-## 每次对话时（每次新增功能和修bug），必须遵守一下要求：
+## 每次发起对话，请务必遵循以下要求：
+
+### 1. 新增功能和修bug：
+
 - 代码注释写好
 - 接口文档及时更新
 - ​测试用例要编写
 - ​项目中相应 md 文件要更新
+
+### 2. 待补充......
 ---
 
 ## Build & Run
@@ -45,7 +50,7 @@ docker compose logs -f backend
 cd springboot
 mvn spring-boot:run
 
-# Run tests (171 tests, ~10 seconds)
+# Run tests (212 tests, ~10 seconds)
 cd springboot
 mvn test
 
@@ -73,6 +78,70 @@ redis-cli
 **API Documentation**: Knife4j UI at `http://localhost:8080/doc.html` after backend starts. Swagger JSON at `/v3/api-docs`. Knife4j paths are excluded from the interceptor chain in `WebConfig.java`.
 
 ⚠️ **Knife4j + Spring Boot 3.5.x compatibility**: `GlobalExceptionHandler` has `@Hidden` annotation to prevent SpringDoc from scanning it — this avoids a `NoSuchMethodError` caused by `ControllerAdviceBean` constructor signature change in Spring Framework 6.2. Also, `Knife4jConfig` has a `GlobalOpenApiCustomizer` bean that injects `SecurityRequirement` into every Operation — Knife4j does not auto-inherit the global security declaration, so this customizer is mandatory for the Authorize button to work. If upgrading Knife4j to a version that natively supports Spring Boot 3.5+, remove both workarounds. See `P0_SECURITY_FIX.md#P2` for details.
+
+---
+
+## Project Structure (Quick Reference)
+
+```
+springboot/src/main/java/com/zyt/
+├── AppStart.java                          # 启动类
+├── config/                                # 配置类（12 个）
+│   ├── AiConfig.java                      #   LangChain4j 流式模型 + Embedding
+│   ├── RagConfig.java                     #   EmbeddingModel + SimpleEmbeddingStore Bean
+│   ├── Knife4jConfig.java                 #   OpenAPI 3 文档 + SecurityRequirement 注入
+│   ├── SecurityConfig.java                #   Spring Security（仅 BCrypt）
+│   ├── WebConfig.java                     #   拦截器注册 + CORS
+│   ├── LoginInterceptor.java              #   JWT 校验 + Redis 单设备验证
+│   ├── RoleInterceptor.java               #   RBAC 角色校验
+│   ├── RequireRole.java                   #   @RequireRole("admin") 自定义注解
+│   ├── MyConfig.java                      #   MyBatis-Plus 分页插件
+│   ├── WechatConfig.java                  #   微信 OAuth 配置
+│   ├── CleanupTask.java                   #   定时清理任务
+│   └── SwaggerCompatController.java       #   Swagger JSON 兼容端点
+├── controller/                            # REST 控制器（3 个，32+ 端点）
+│   ├── UserController.java                #   用户认证（16 端点）
+│   ├── AiChatController.java              #   AI 对话 + SSE + RAG 对话
+│   └── RagController.java                 #   RAG 知识库 CRUD（16 端点）
+├── service/                               # 业务逻辑层
+│   ├── UserService.java / impl/UserServiceImpl.java           # 用户认证
+│   ├── AiChatService.java / impl/AiChatServiceImpl.java       # AI 对话 + RAG 注入
+│   ├── RagService.java / impl/RagServiceImpl.java             # 知识库 CRUD + 回收站
+│   ├── RagProcessingService.java / impl/RagProcessingServiceImpl.java  # 文档处理 + 启动重建
+│   └── impl/SimpleEmbeddingStore.java     #   余弦相似度内存向量存储
+├── entity/                                # 实体类（6 个）
+│   ├── User.java, ChatConversation.java, ChatMessage.java
+│   └── KnowledgeBase.java, KbDocument.java, KbChunk.java
+├── mapper/                                # MyBatis-Plus Mapper（6 个，BaseMapper 免写 SQL）
+├── exception/                             # 异常体系（7 个）
+│   ├── BusinessException.java             #   基类
+│   ├── BadRequestException (400) / UnauthorizedException (401)
+│   ├── ForbiddenException (403) / NotFoundException (404) / RateLimitException (429)
+│   └── GlobalExceptionHandler.java        #   @RestControllerAdvice 全局捕获
+└── utils/                                 # 工具类（7 个）
+    ├── JwtUtil.java / CaptchaUtil.java / EmailUtil.java
+    ├── WechatUtil.java / ResponseUtil.java
+    ├── FileTypeUtil.java / TextSplitterUtil.java
+
+web/frontend/src/
+├── views/                                 # 页面组件（7 个）
+│   ├── Home.vue / Login.vue / Register.vue / ForgotPassword.vue
+│   ├── Chat.vue                           #   AI 对话（SSE + RAG 开关）
+│   ├── KnowledgeBase.vue                  #   知识库管理 + 两级回收站
+│   └── Admin.vue                          #   管理员页面
+├── api/                                   # API 封装
+│   ├── index.js                           #   Axios 实例 + 拦截器（自动刷新 Token）
+│   ├── user.js / ai.js / rag.js           #   按模块封装
+├── router/index.js                        # 路由 + 导航守卫
+└── utils/token.js                         # localStorage 双 Token 存取
+
+springboot/src/test/java/com/zyt/          # 单元测试（212 个）
+├── utils/         ResponseUtilTest, CaptchaUtilTest, JwtUtilTest
+├── service/       UserServiceImplTest, RagServiceImplTest, EmbeddingDebugTest
+├── config/        LoginInterceptorTest, RoleInterceptorTest, SwaggerCompatControllerTest
+├── controller/    UserControllerTest, RagControllerTest
+└── exception/     GlobalExceptionHandlerTest
+```
 
 ---
 
@@ -226,6 +295,7 @@ RAG Chat → 检索相关块 → 注入System Prompt → SSE 流式输出
 - **Vector Store**: `SimpleEmbeddingStore` — custom in-memory cosine-similarity store (because `InMemoryEmbeddingStore` is not in langchain4j-core 1.15.0). Rebuilt from MySQL `kb_chunk` table on app restart.
 - **Document Processing**: Apache Tika for text extraction (PDF/DOCX/DOC/TXT/MD) + `TextSplitterUtil` recursive splitter (800 char chunks, 100 char overlap)
 - **Integration**: Opt-in per conversation — toggle "RAG" switch in chat header, select a knowledge base. Retrieval results injected before the System Prompt security rules.
+- **Two-Level Recycle Bin**: Soft-deleted knowledge bases and documents are moved to a recycle bin, not permanently removed. Supports restore (with automatic re-embedding) and permanent deletion (cleans disk files, vectors, chunks, and DB records).
 
 ### Database Tables
 
@@ -286,7 +356,7 @@ All `/rag/**` endpoints require login. No changes needed to `WebConfig.excludePa
 | File | Purpose |
 |------|---------|
 | `api/rag.js` | RAG API calls (knowledge base CRUD, upload, query, SSE RAG chat) |
-| `views/KnowledgeBase.vue` | Full KB management page: card list, expandable document table, upload, status polling, test query panel |
+| `views/KnowledgeBase.vue` | Full KB management page: card list, expandable document table, upload, status polling, test query panel, two-level recycle bin (KB + document) |
 | `views/Chat.vue` (modified) | RAG toggle switch + KB selector in chat header, RAG-aware send handler, sidebar "知识库" link |
 | `router/index.js` (modified) | Added `/knowledge` route (`requiresAuth: true`) |
 
@@ -323,7 +393,7 @@ This ensures vector data survives restarts despite in-memory storage.
 
 ## Testing
 
-**Framework**: JUnit 5 + Mockito + Spring MockMvc (standalone setup). All 196 tests run as pure unit tests — no MySQL/Redis/network dependency, CI-ready. (Including 12 new RAG tests from Phase 2)
+**Framework**: JUnit 5 + Mockito + Spring MockMvc (standalone setup). All 212 tests run as pure unit tests — no MySQL/Redis/network dependency, CI-ready. (Including RAG knowledge base tests with two-level recycle bin)
 
 **Run**: `cd springboot && mvn test` (~10 seconds, 0 failures).
 
@@ -346,7 +416,7 @@ This ensures vector data survives restarts despite in-memory storage.
 - Real `BCryptPasswordEncoder` (spied) for service tests — no external dependency
 - Standalone MockMvc controllers wired with `ReflectionTestUtils.setField(controller, "userService", mock)` + `.setControllerAdvice(new GlobalExceptionHandler())`
 
-**Test config**: `springboot/src/test/resources/application.yml` provides H2 datasource + placeholder credentials for `@Value` injection — but pure unit tests (all current 171 tests) never load it.
+**Test config**: `springboot/src/test/resources/application.yml` provides H2 datasource + placeholder credentials for `@Value` injection — but pure unit tests (all current 212 tests) never load it.
 
 ---
 
