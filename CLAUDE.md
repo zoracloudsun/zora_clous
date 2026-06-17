@@ -209,9 +209,114 @@ Vue Component  →  api/user.js  →  api/index.js (Axios instance)
 
 ---
 
+## RAG Knowledge Base (Phase 2)
+
+### Architecture
+
+RAG (Retrieval-Augmented Generation) 通过文档上传 → 文本提取 → 分块 → Embedding → 向量检索 → 上下文注入的完整管道，使 AI 回答能够基于用户的知识库内容。
+
+```
+Upload → Tika解析 → 递归分块 → Embedding(OpenAI兼容API) → SimpleEmbeddingStore(内存)
+                                                           ↓
+RAG Chat → 检索相关块 → 注入System Prompt → SSE 流式输出
+```
+
+**Key Design Decisions**:
+- **Embedding Model**: `OpenAiEmbeddingModel` (langchain4j-open-ai, same adapter pattern as chat), points to OpenAI-compatible API via `rag.embedding.*` config
+- **Vector Store**: `SimpleEmbeddingStore` — custom in-memory cosine-similarity store (because `InMemoryEmbeddingStore` is not in langchain4j-core 1.15.0). Rebuilt from MySQL `kb_chunk` table on app restart.
+- **Document Processing**: Apache Tika for text extraction (PDF/DOCX/DOC/TXT/MD) + `TextSplitterUtil` recursive splitter (800 char chunks, 100 char overlap)
+- **Integration**: Opt-in per conversation — toggle "RAG" switch in chat header, select a knowledge base. Retrieval results injected before the System Prompt security rules.
+
+### Database Tables
+
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `knowledge_base` | User-created document collections | id, user_id, name, description, deleted_at |
+| `kb_document` | Uploaded documents with processing status | id, kb_id, filename, file_type, status (PENDING→PROCESSING→COMPLETED/FAILED), chunk_count |
+| `kb_chunk` | Text chunks (persistence for embedding rebuild) | id, document_id, chunk_index, content, char_count |
+
+Migration: `springboot/src/main/resources/db/migration/V3__rag_tables.sql`
+
+### API Endpoints (/rag/**)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/rag/knowledge-bases` | Create knowledge base |
+| GET | `/rag/knowledge-bases` | List user's knowledge bases |
+| GET | `/rag/knowledge-bases/{id}` | Get KB detail + documents |
+| PUT | `/rag/knowledge-bases/{id}` | Update name/description |
+| DELETE | `/rag/knowledge-bases/{id}` | Soft delete KB |
+| POST | `/rag/knowledge-bases/{id}/documents` | Upload document (multipart) |
+| GET | `/rag/knowledge-bases/{id}/documents` | List documents |
+| DELETE | `/rag/knowledge-bases/{id}/documents/{docId}` | Delete document |
+| POST | `/rag/knowledge-bases/{id}/query` | Test retrieval |
+| POST | `/ai/chat/rag-stream` | SSE RAG-enhanced streaming chat |
+
+All `/rag/**` endpoints require login. No changes needed to `WebConfig.excludePathPatterns`.
+
+### Key Backend Files
+
+| Layer | File |
+|-------|------|
+| Config | `config/RagConfig.java` — `EmbeddingModel` + `SimpleEmbeddingStore` beans |
+| Entity | `entity/KnowledgeBase.java`, `entity/KbDocument.java`, `entity/KbChunk.java` |
+| Mapper | `mapper/KnowledgeBaseMapper.java`, `mapper/KbDocumentMapper.java`, `mapper/KbChunkMapper.java` |
+| Service | `service/RagService.java`, `service/RagProcessingService.java` |
+| Impl | `service/impl/RagServiceImpl.java`, `service/impl/RagProcessingServiceImpl.java`, `service/impl/SimpleEmbeddingStore.java` |
+| Controller | `controller/RagController.java` |
+| Utility | `utils/FileTypeUtil.java`, `utils/TextSplitterUtil.java` |
+
+### RAG Chat Integration
+
+`AiChatServiceImpl.streamChatWithRag()` — when `knowledgeBaseId` is not null:
+1. `ragService.retrieveContext(kbId, query)` — embed query, search vector store, format results
+2. Build System Prompt: `【知识库参考内容】 + chunks + 【知识库内容结束】 + existing SYSTEM_PROMPT`
+3. All other logic (rate limiting, injection detection, streaming) identical to `streamChat()`
+4. If retrieval fails or returns empty → graceful degradation to standard chat
+
+### Frontend
+
+| File | Purpose |
+|------|---------|
+| `api/rag.js` | RAG API calls (knowledge base CRUD, upload, query, SSE RAG chat) |
+| `views/KnowledgeBase.vue` | Full KB management page: card list, expandable document table, upload, status polling, test query panel |
+| `views/Chat.vue` (modified) | RAG toggle switch + KB selector in chat header, RAG-aware send handler, sidebar "知识库" link |
+| `router/index.js` (modified) | Added `/knowledge` route (`requiresAuth: true`) |
+
+### Configuration
+
+```yaml
+rag:
+  embedding:
+    api-key: ${AI_EMBEDDING_API_KEY:}
+    base-url: ${AI_EMBEDDING_BASE_URL:https://api.openai.com/v1}
+    model-name: ${AI_EMBEDDING_MODEL:text-embedding-3-small}
+  document:
+    max-size: 10485760        # 10MB
+    upload-dir: ${RAG_UPLOAD_DIR:./uploads/rag}
+    max-chunk-size: 800
+    max-chunk-overlap: 100
+    max-retrieve-results: 5
+    min-relevance-score: 0.3
+```
+
+**Embedding API providers**: OpenAI, 硅基流动 (SiliconFlow, cheaper in China), or any OpenAI-compatible endpoint. Set via `.env` variables `AI_EMBEDDING_API_KEY`, `AI_EMBEDDING_BASE_URL`, `AI_EMBEDDING_MODEL`.
+
+### Startup Embedding Rebuild
+
+On application start, `RagProcessingServiceImpl.@PostConstruct rebuildEmbeddingStore()`:
+1. Queries all `COMPLETED` non-deleted documents
+2. Loads their chunks from `kb_chunk` table
+3. Re-embeds each chunk via `EmbeddingModel`
+4. Stores embeddings in `SimpleEmbeddingStore`
+
+This ensures vector data survives restarts despite in-memory storage.
+
+---
+
 ## Testing
 
-**Framework**: JUnit 5 + Mockito + Spring MockMvc (standalone setup). All 171 tests run as pure unit tests — no MySQL/Redis/network dependency, CI-ready.
+**Framework**: JUnit 5 + Mockito + Spring MockMvc (standalone setup). All 196 tests run as pure unit tests — no MySQL/Redis/network dependency, CI-ready. (Including 12 new RAG tests from Phase 2)
 
 **Run**: `cd springboot && mvn test` (~10 seconds, 0 failures).
 

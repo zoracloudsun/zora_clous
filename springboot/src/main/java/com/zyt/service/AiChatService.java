@@ -13,6 +13,15 @@ public interface AiChatService {
     /** SSE 流式对话 */
     Flux<String> streamChat(String email, String userMessage, Long conversationId);
 
+    /**
+     * SSE 流式对话（RAG 增强版）
+     * <p>
+     * knowledgeBaseId 为 null 时退化为普通对话。
+     * 非 null 时从指定知识库检索相关上下文并注入 System Prompt。
+     * </p>
+     */
+    Flux<String> streamChatWithRag(String email, String userMessage, Long conversationId, Long knowledgeBaseId);
+
     /** 获取当前用户的对话列表 */
     List<Map<String, Object>> listConversations(String email);
 

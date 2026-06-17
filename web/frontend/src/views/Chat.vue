@@ -135,6 +135,10 @@
             {{ deletedConversations.length }}
           </span>
         </button>
+        <button class="footer-btn" @click="$router.push('/knowledge')">
+          <el-icon :size="16"><Collection /></el-icon>
+          <span>知识库</span>
+        </button>
         <button class="footer-btn" @click="$router.push('/home')">
           <el-icon :size="16"><HomeFilled /></el-icon>
           <span>返回主页</span>
@@ -157,6 +161,30 @@
           <h1 class="header-title">{{ currentTitle || '新对话' }}</h1>
         </div>
         <div class="header-right">
+          <!-- Phase 2: RAG 知识库选择器 -->
+          <template v-if="knowledgeBases.length > 0">
+            <el-switch
+              v-model="ragEnabled"
+              size="small"
+              active-text="RAG"
+              style="margin-right: 8px"
+            />
+            <el-select
+              v-model="selectedKbId"
+              placeholder="选择知识库"
+              size="small"
+              :disabled="!ragEnabled"
+              style="width: 140px; margin-right: 8px"
+              clearable
+            >
+              <el-option
+                v-for="kb in knowledgeBases"
+                :key="kb.id"
+                :label="kb.name"
+                :value="kb.id"
+              />
+            </el-select>
+          </template>
           <span class="header-badge">DeepSeek</span>
         </div>
       </header>
@@ -278,6 +306,10 @@
           </div>
         </div>
         <div class="input-footer">
+          <template v-if="ragEnabled && selectedKbId">
+            <el-icon :size="12" color="#67c23a"><CircleCheckFilled /></el-icon>
+            已从知识库检索上下文增强回答 |
+          </template>
           AI 由 DeepSeek 大模型驱动，内容仅供参考
         </div>
       </div>
@@ -292,7 +324,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus, Fold, Expand, Delete, HomeFilled, ChatDotRound,
   CopyDocument, Promotion, VideoPause, Search, ChatLineRound,
-  UserFilled, RefreshLeft,
+  UserFilled, RefreshLeft, Collection, CircleCheckFilled,
 } from '@element-plus/icons-vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
@@ -303,6 +335,7 @@ import {
   deleteConversation, streamChat,
   getDeletedConversations, restoreConversation, permanentDeleteConversation,
 } from '@/api/ai'
+import { streamRagChat, listKnowledgeBases } from '@/api/rag'
 
 const router = useRouter()
 const messagesContainer = ref(null)
@@ -318,6 +351,11 @@ const isStreaming = ref(false)
 const streamingContent = ref('')
 const searchQuery = ref('')
 let abortController = null
+
+// ==================== Phase 2: RAG 知识库状态 ====================
+const ragEnabled = ref(false)
+const knowledgeBases = ref([])
+const selectedKbId = ref(null)
 
 // 回收站状态
 const showTrash = ref(false)
@@ -399,6 +437,13 @@ const loadConversations = async () => {
   try {
     const res = await getConversations()
     conversations.value = res.data || []
+  } catch {}
+}
+
+const loadKbs = async () => {
+  try {
+    const res = await listKnowledgeBases()
+    knowledgeBases.value = res.data || []
   } catch {}
 }
 
@@ -516,9 +561,16 @@ const handleSend = async (e) => {
 
   const convId = currentConversationId.value
 
-  abortController = streamChat(
-    msg,
-    convId,
+  // Phase 2: RAG 模式 — 使用知识库增强的流式对话
+  const kbId = ragEnabled.value ? selectedKbId.value : null
+  const chatFn = kbId ? streamRagChat : (m, cid, onT, onD, onE) =>
+    streamChat(m, cid, onT, onD, onE)
+  // 适配 streamRagChat 的第 3 个参数 knowledgeBaseId
+  const callChat = kbId
+    ? (onT, onD, onE) => streamRagChat(msg, convId, kbId, onT, onD, onE)
+    : (onT, onD, onE) => streamChat(msg, convId, onT, onD, onE)
+
+  abortController = callChat(
     (token) => {
       streamingContent.value += token
       scrollToBottom()
@@ -594,7 +646,7 @@ const autoResize = () => {
 
 watch(() => streamingContent.value, () => scrollToBottom())
 
-onMounted(() => { loadConversations() })
+onMounted(() => { loadConversations(); loadKbs() })
 </script>
 
 <style scoped>

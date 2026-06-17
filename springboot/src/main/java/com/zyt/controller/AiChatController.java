@@ -134,4 +134,35 @@ public class AiChatController {
         chatService.permanentDeleteConversation(email, id);
         return ResponseUtil.success(null, "已永久删除");
     }
+
+    // ==================== Phase 2: RAG 增强对话 ====================
+
+    @Operation(summary = "SSE 流式对话（RAG 增强）", description = "与 /ai/chat/stream 类似，但可指定知识库 ID。" +
+            "当 knowledgeBaseId 不为 null 时，先从知识库检索相关上下文注入 System Prompt，" +
+            "使 AI 回答基于知识库内容生成。knowledgeBaseId 为 null 时退化为普通对话。")
+    @PostMapping(value = "/chat/rag-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> streamRagChat(
+            @RequestBody Map<String, Object> body,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        String message = (String) body.get("message");
+        Long conversationId = body.get("conversationId") != null
+                ? Long.valueOf(body.get("conversationId").toString())
+                : null;
+        Long knowledgeBaseId = body.get("knowledgeBaseId") != null
+                ? Long.valueOf(body.get("knowledgeBaseId").toString())
+                : null;
+
+        // 消息非空 + 长度校验
+        if (message == null || message.isBlank()) {
+            return Flux.error(new IllegalArgumentException("消息不能为空"));
+        }
+        if (message.length() > MAX_MESSAGE_LENGTH) {
+            return Flux.error(new IllegalArgumentException(
+                    "消息长度不能超过 " + MAX_MESSAGE_LENGTH + " 个字符"));
+        }
+
+        return chatService.streamChatWithRag(email, message, conversationId, knowledgeBaseId);
+    }
 }

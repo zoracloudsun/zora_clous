@@ -30,6 +30,9 @@ COPY --from=build /build/app.jar .
 # 确保 appuser 拥有 app 目录
 RUN chown -R appuser:appgroup /app
 
+# 创建 RAG 上传目录，权限给 appuser
+RUN mkdir -p /data/uploads/rag && chown -R appuser:appgroup /data/uploads/rag
+
 USER appuser
 
 EXPOSE 8080

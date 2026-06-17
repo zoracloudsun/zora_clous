@@ -18,6 +18,7 @@ services:
       - mysql_data:/var/lib/mysql
       - ./springboot/src/main/resources/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
       - ./springboot/src/main/resources/db/migration/V2__chat_tables.sql:/docker-entrypoint-initdb.d/02-chat-tables.sql:ro
+      - ./springboot/src/main/resources/db/migration/V3__rag_tables.sql:/docker-entrypoint-initdb.d/03-rag-tables.sql:ro
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -87,10 +88,17 @@ services:
       AI_API_KEY: ${AI_API_KEY:-}
       AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com/v1}
       AI_MODEL_NAME: ${AI_MODEL_NAME:-deepseek-chat}
+      # RAG 知识库（Phase 2）
+      AI_EMBEDDING_API_KEY: ${AI_EMBEDDING_API_KEY:-}
+      AI_EMBEDDING_BASE_URL: ${AI_EMBEDDING_BASE_URL:-https://api.openai.com/v1}
+      AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-text-embedding-3-small}
+      RAG_UPLOAD_DIR: /data/uploads/rag
       # JVM 调优
       JAVA_OPTS: "-Xms256m -Xmx512m"
     ports:
       - "${BACKEND_PORT:-18080}:8080"
+    volumes:
+      - rag_uploads:/data/uploads/rag
     networks:
       - app-network
 
@@ -126,6 +134,8 @@ volumes:
   mysql_data:
     driver: local
   redis_data:
+    driver: local
+  rag_uploads:
     driver: local
 
 networks:

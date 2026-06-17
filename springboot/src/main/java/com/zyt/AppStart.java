@@ -8,6 +8,7 @@ package com.zyt;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 // 这个类用于启动springboot服务器---springboot项目是一个服务器而非普通的java文件
@@ -15,6 +16,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 // 今后基本上所有的java代码都要放在这个类的同级目录或者子级目录中 --- 才可以被扫描识别
 @SpringBootApplication
 @EnableScheduling
+@EnableAsync  // Phase 2: 支持文档处理的异步执行，避免上传请求因嵌入操作而超时
 // 扫描mapper接口所在的包，自动生成代理对象【实现类对象】
 @MapperScan("com.zyt.mapper")
 public class AppStart {

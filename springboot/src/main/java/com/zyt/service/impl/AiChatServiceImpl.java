@@ -11,6 +11,7 @@ import com.zyt.mapper.ChatConversationMapper;
 import com.zyt.mapper.ChatMessageMapper;
 import com.zyt.mapper.UserMapper;
 import com.zyt.service.AiChatService;
+import com.zyt.service.RagService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import dev.langchain4j.data.message.AiMessage;
@@ -176,6 +177,10 @@ public class AiChatServiceImpl implements AiChatService {
     /** Redis 模板（限流 ZSET + 未来扩展用） */
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    /** RAG 知识库服务（Phase 2 — 检索增强生成） */
+    @Resource
+    private RagService ragService;
 
     /**
      * P1-4: 当前活跃 SSE 流计数器
@@ -845,5 +850,161 @@ public class AiChatServiceImpl implements AiChatService {
             return "AI 服务暂时不可用，请稍后重试";
         }
         return "AI 服务暂时不可用，请稍后重试";
+    }
+
+    // ==================== Phase 2: RAG 增强对话 ====================
+
+    /**
+     * SSE 流式对话（RAG 增强版）
+     * <p>
+     * 当 {@code knowledgeBaseId} 不为 null 时，先从知识库检索相关上下文，
+     * 注入 System Prompt 后再调用 LLM 生成回答。检索无结果时优雅降级为普通对话。
+     * 其他流程（限流、注入检测、消息存储、历史加载、流式输出）与 {@link #streamChat} 一致。
+     * </p>
+     *
+     * @param email            当前用户邮箱
+     * @param userMessage      用户输入的消息文本
+     * @param conversationId   会话 ID（为 null 时自动创建新对话）
+     * @param knowledgeBaseId  知识库 ID（为 null 时退化为普通对话）
+     * @return SSE 流式 token 序列
+     */
+    @Override
+    public Flux<String> streamChatWithRag(String email, String userMessage,
+                                          Long conversationId, Long knowledgeBaseId) {
+        // P1-1: 限流检查
+        checkRateLimit(email);
+
+        // P1-5: Prompt Injection 检测
+        checkPromptInjection(userMessage);
+
+        // 1. 查找用户
+        User user = findUserByEmail(email);
+
+        // 2. Phase 2: RAG 检索上下文（仅在指定知识库时执行）
+        String ragContext = "";
+        if (knowledgeBaseId != null) {
+            try {
+                ragContext = ragService.retrieveContext(knowledgeBaseId, userMessage, 5, 0.3);
+                if (!ragContext.isEmpty()) {
+                    log.debug("RAG 检索到相关上下文，知识库 id={}, 内容长度={}", knowledgeBaseId, ragContext.length());
+                } else {
+                    log.debug("RAG 未检索到相关内容，知识库 id={}", knowledgeBaseId);
+                }
+            } catch (Exception e) {
+                // 检索失败不影响对话，降级为普通模式
+                log.warn("RAG 检索失败（降级为普通对话）: kbId={}, error={}", knowledgeBaseId, e.getMessage());
+                ragContext = "";
+            }
+        }
+
+        // 3. 解析或创建对话
+        ChatConversation conversation;
+        if (conversationId == null) {
+            conversation = createConversation(user.getId(), generateTitle(userMessage));
+        } else {
+            conversation = findConversation(conversationId, user.getId());
+        }
+
+        // 4. 保存用户消息
+        saveMessage(conversation.getId(), "user", userMessage);
+
+        // 5. 加载历史消息
+        List<ChatMessage> history = loadHistory(conversation.getId());
+
+        // 6. 构建消息列表（含 RAG 上下文）
+        List<dev.langchain4j.data.message.ChatMessage> messages =
+                buildMessagesWithRag(history, userMessage, ragContext);
+
+        // P1-4: 并发流数检查
+        if (activeStreams.incrementAndGet() > MAX_CONCURRENT_STREAMS) {
+            activeStreams.decrementAndGet();
+            throw new RateLimitException("当前 AI 对话人数较多，请稍后再试");
+        }
+
+        // 7. 流式返回（与 streamChat 逻辑完全相同）
+        final Long convId = conversation.getId();
+        return Flux.<String>create(emitter -> {
+            StringBuilder fullResponse = new StringBuilder();
+
+            streamingChatModel.chat(messages, new StreamingChatResponseHandler() {
+                @Override
+                public void onPartialResponse(String partialResponse) {
+                    fullResponse.append(partialResponse);
+                    try {
+                        emitter.next(JSON_MAPPER.writeValueAsString(partialResponse));
+                    } catch (Exception e) {
+                        emitter.next(partialResponse);
+                    }
+                }
+
+                @Override
+                public void onCompleteResponse(ChatResponse completeResponse) {
+                    saveMessage(convId, "assistant", fullResponse.toString());
+                    updateTitleIfFirstMessage(convId, fullResponse.toString());
+                    emitter.complete();
+                }
+
+                @Override
+                public void onError(Throwable error) {
+                    log.error("AI 流式响应出错: {}", error.getMessage(), error);
+                    String userMsg = sanitizeErrorMessage(error);
+                    emitter.error(new RuntimeException(userMsg));
+                }
+            });
+        }).doFinally(signal -> activeStreams.decrementAndGet());
+    }
+
+    /**
+     * 构建 LangChain4j 消息列表（含 RAG 上下文）
+     * <p>
+     * 消息结构：{@code [SystemMessage(RAG+安全规则), 历史消息..., 当前UserMessage]}
+     * RAG 上下文注入在 System Prompt 最前面，安全规则紧随其后。
+     * 当 ragContext 为空时，退化为普通 {@link #buildMessages}。
+     * </p>
+     */
+    private List<dev.langchain4j.data.message.ChatMessage> buildMessagesWithRag(
+            List<ChatMessage> history, String currentMessage, String ragContext) {
+        List<dev.langchain4j.data.message.ChatMessage> messages = new ArrayList<>();
+
+        // System Prompt — RAG 上下文 + 安全规则
+        String systemPrompt;
+        if (ragContext != null && !ragContext.isEmpty()) {
+            systemPrompt = "【知识库参考内容（请优先根据以下内容回答用户问题）】\n"
+                    + ragContext + "\n"
+                    + "【知识库内容结束】\n\n"
+                    + "回答规则：\n"
+                    + "1. 优先使用上述知识库内容回答问题\n"
+                    + "2. 如果知识库中没有相关信息，请如实告知用户\n"
+                    + "3. 回答时引用知识库中的具体来源\n\n"
+                    + SYSTEM_PROMPT;
+        } else {
+            systemPrompt = SYSTEM_PROMPT;
+        }
+        messages.add(SystemMessage.from(systemPrompt));
+
+        // 历史消息（最后一条 user 消息排除，后面单独添加）
+        int endIndex = history.size();
+        if (endIndex > 0 && "user".equals(history.get(endIndex - 1).getRole())) {
+            endIndex--;
+        }
+        for (int i = 0; i < endIndex; i++) {
+            ChatMessage msg = history.get(i);
+            switch (msg.getRole()) {
+                case "user":
+                    messages.add(UserMessage.from(msg.getContent()));
+                    break;
+                case "assistant":
+                    messages.add(AiMessage.from(msg.getContent()));
+                    break;
+                case "system":
+                    messages.add(SystemMessage.from(msg.getContent()));
+                    break;
+            }
+        }
+
+        // 当前用户消息
+        messages.add(UserMessage.from(currentMessage));
+
+        return messages;
     }
 }

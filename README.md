@@ -1,12 +1,15 @@
-# Spring Boot + Vue3 用户认证系统
+# Spring Boot + Vue3 全栈项目：认证系统 + AI 智能对话 + RAG 知识库
 
-> 前后端分离的完整用户认证系统 | 2026 
+> 前后端分离的全栈项目 | 2026
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.11-brightgreen)](https://spring.io/projects/spring-boot)
 [![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D)](https://vuejs.org/)
 [![JDK](https://img.shields.io/badge/JDK-21-orange)](https://openjdk.org/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.x-blue)](https://www.mysql.com/)
 [![Redis](https://img.shields.io/badge/Redis-7.x-red)](https://redis.io/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)](https://www.docker.com/)
+[![LangChain4j](https://img.shields.io/badge/LangChain4j-1.15.0-00B265)](https://docs.langchain4j.dev/)
+[![DeepSeek](https://img.shields.io/badge/DeepSeek-V3-536DFE)](https://platform.deepseek.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 [![CI](https://github.com/ZoraCloudSun/springboot_vue3/actions/workflows/ci.yml/badge.svg)](https://github.com/ZoraCloudSun/springboot_vue3/actions/workflows/ci.yml)
 
@@ -14,103 +17,57 @@
 
 ## 项目简介
 
-一套**生产级**前后端分离的用户注册、登录、鉴权系统，涵盖从图形验证码、邮箱验证、JWT 双 Token、暴力破解防护到真实微信 OAuth 扫码登录的完整认证闭环。适合作为 Spring Boot + Vue3 全栈学习项目的基础框架。
+一套**生产级**前后端分离的全栈项目，集成了完整的用户认证闭环和基于大模型的 AI 智能对话系统，并支持 RAG（检索增强生成）知识库。
 
-- **后端**：Spring Boot 3.5.11 + MyBatis-Plus 3.5.12 + MySQL + Redis + Spring Security + JJWT 0.12 + JavaMail
-- **前端**：Vue 3.5 + Vite 8 + Element Plus 2.14 + Vue Router 4 + Axios + qrcode
+| 系统 | 说明 |
+|------|------|
+| 🔐 **用户认证系统** | 图形验证码、邮箱验证码注册、JWT 双 Token 鉴权、微信 OAuth 扫码登录、RBAC 角色权限控制、暴力破解防护 |
+| 🤖 **AI 智能对话** | DeepSeek-V3 大模型驱动、SSE 流式传输（打字机效果）、多轮上下文对话、Markdown + 代码高亮渲染、对话历史管理 |
+| 📚 **RAG 知识库** | 文档上传 → 文本提取 → 分块 → Embedding 向量化 → 检索增强生成，让 AI 基于用户自己的文档回答 |
+
+- **后端**：Spring Boot 3.5.11 + MyBatis-Plus 3.5.12 + MySQL + Redis + LangChain4j 1.15.0 + Apache Tika + JJWT 0.12
+- **前端**：Vue 3.5 + Vite 8 + Element Plus 2.14 + Vue Router 4 + Axios + marked + highlight.js + DOMPurify
 
 ---
 
 ## 核心功能
 
-| 功能 | 状态 | 说明 |
-|------|:----:|------|
-| 图形验证码 | ✅ | Java AWT 绘制，6位大写字母 + 干扰线 + 噪点 + 字符旋转，Redis 2min TTL |
-| 邮箱验证码注册 | ✅ | 163邮箱 SMTP，6位数字验证码，Redis 5min TTL，60秒防刷 |
-| 密码登录 | ✅ | BCrypt 加密 + 图形验证码 + 5次失败锁定15分钟 + 统一错误提示防用户枚举 |
-| 双 Token 鉴权 | ✅ | accessToken (30min) + refreshToken (7天)，JWT `type` claim 强制类型校验 |
-| 无感刷新 | ✅ | Axios 响应拦截器 + 请求队列，并发 401 只刷新一次 |
-| 单设备登录 | ✅ | Redis 缓存双 Token，新登录自动踢掉旧设备 |
-| 暴力破解防护 | ✅ | Redis INCR 原子计数，TTL 仅首次设置防绕过，HTTP 429 响应 |
-| 微信扫码登录 | ✅ | 真实 OAuth 2.0（测试号），已绑定用户扫码直接登录，新用户扫码后邮箱绑定 |
-| 微信账号关联 | ✅ | 支持已绑定直接登录 / 新注册 / 已有账号绑定 / 已绑定拒绝四种场景 |
-| 邮箱找回密码 | ✅ | 邮箱验证码 + 重置后强制所有设备重新登录 |
-| 角色权限控制（RBAC） | ✅ | 自定义 @RequireRole 注解 + RoleInterceptor，user/admin 双角色，JWT role claim |
+### 用户认证
 
----
+| 功能 | 说明 |
+|------|------|
+| 图形验证码 | Java AWT 绘制，6位大写字母 + 干扰线 + 噪点，Redis TTL 2min |
+| 邮箱验证码注册 | 163邮箱 SMTP，6位数字验证码，60秒防刷 |
+| 密码登录 | BCrypt 加密 + 5次失败锁定15分钟 + 统一错误提示防用户枚举 |
+| 双 Token 鉴权 | accessToken (30min) + refreshToken (7天)，JWT `type` claim 强制类型校验 |
+| 无感刷新 | Axios 响应拦截器 + 请求队列，并发 401 只刷新一次 |
+| 单设备登录 | Redis 缓存 Token，新登录自动踢掉旧设备 |
+| 微信扫码登录 | 真实 OAuth 2.0，已绑定用户扫一扫直接登录，新用户扫码后邮箱绑定 |
+| 邮箱找回密码 | 验证码校验 + 重置后强制所有设备重新登录 |
+| RBAC 角色权限 | 自定义 `@RequireRole` 注解 + RoleInterceptor，user/admin 双角色 |
 
-## 项目结构
+### AI 智能对话
 
-```
-├── springboot/                          # 后端 Spring Boot 工程
-│   ├── pom.xml                          # Maven 配置
-│   ├── Dockerfile                       # 多阶段构建（Maven → JRE）
-│   ├── .dockerignore                    # Docker 构建排除
-│   └── src/main/
-│       ├── java/com/zyt/
-│       │   ├── AppStart.java            # 启动类
-│       │   ├── controller/              # 控制器（11 个 REST 端点）
-│       │   │   └── UserController.java
-│       │   ├── service/                 # 业务逻辑接口 + 实现
-│       │   │   ├── UserService.java
-│       │   │   └── impl/UserServiceImpl.java
-│       │   ├── mapper/                  # MyBatis-Plus Mapper
-│       │   │   └── UserMapper.java
-│       │   ├── entity/                  # 实体类
-│       │   │   └── User.java            # id, email, password, openid, nickname, avatar
-│       │   ├── config/                  # 配置类
-│       │   │   ├── SecurityConfig.java  # Spring Security（仅 BCrypt）
-│       │   │   ├── WebConfig.java       # 拦截器注册 + CORS
-│       │   │   ├── LoginInterceptor.java # 自定义 Token 校验
-│       │   │   ├── MyConfig.java        # MyBatis-Plus 分页插件
-│       │   │   └── WechatConfig.java    # 微信 OAuth 配置
-│       │   └── utils/                   # 工具类
-│       │       ├── JwtUtil.java         # JWT 生成/解析/类型校验
-│       │       ├── CaptchaUtil.java     # 图形验证码生成（AWT）
-│       │       ├── EmailUtil.java       # 163邮箱 SMTP 异步发送
-│       │       ├── WechatUtil.java      # 微信 API 调用（code→token→用户信息）
-│       │       └── ResponseUtil.java    # 统一响应体
-│       └── resources/
-│           ├── application.yml          # 应用配置（含微信凭证）
-│           └── init.sql                 # 数据库初始化
-│   └── src/test/                        # 单元测试（JUnit 5 + Mockito + MockMvc）
-│       ├── java/com/zyt/
-│       │   ├── utils/                   # ResponseUtil / CaptchaUtil / JwtUtil（纯 JUnit 5）
-│       │   ├── service/                 # UserServiceImpl（Mockito + @InjectMocks）
-│       │   ├── config/                  # LoginInterceptor / RoleInterceptor（Mockito）
-│       │   ├── controller/              # UserController（Standalone MockMvc）
-│       │   └── exception/               # GlobalExceptionHandler（MockMvc + 内嵌 Controller）
-│       └── resources/
-│           └── application.yml          # 测试环境配置（H2 内存数据库）
-├── web/frontend/                        # 前端 Vue 3 + Vite 工程
-│   ├── Dockerfile                        # 多阶段构建（Node → Nginx）
-│   ├── .dockerignore                     # Docker 构建排除
-│   ├── nginx.conf                        # Nginx 配置（SPA + API 代理）
-│   ├── vite.config.js                    # Vite 配置（代理 + 按需导入）
-│   ├── package.json                     # 依赖清单
-│   └── src/
-│       ├── main.js                      # 入口
-│       ├── App.vue                      # 根组件
-│       ├── style.css                    # 全局样式 + 响应式
-│       ├── views/                       # 页面组件
-│       │   ├── Login.vue                # 登录页（密码 + 微信双Tab）
-│       │   ├── Register.vue             # 注册页
-│       │   └── Home.vue                 # 首页（鉴权通过展示）
-│       ├── api/                         # API 封装
-│       │   ├── index.js                 # Axios 实例 + 拦截器（自动刷新）
-│       │   └── user.js                  # 用户接口（12 个 API 函数）
-│       ├── router/                      # 路由
-│       │   └── index.js                 # 路由配置 + 导航守卫
-│       └── utils/                       # 工具
-│           └── token.js                 # localStorage Token 存取
-├── docker-compose.yml                     # Docker 容器编排（5 服务一键启动）
-├── .env                                    # Docker 环境变量（端口、密码、密钥）
-├── DB_MIGRATION.sql                        # 数据库迁移脚本（微信字段）
-├── P0_SECURITY_FIX.md                   # P0 安全修复文档
-├── WECHAT_SETUP_GUIDE.md                # 微信扫码登录完整配置指南
-├── 项目构建教程.md                       # 28 步详细构建教程（含设计原理）
-└── README.md                            # 本文件
-```
+| 功能 | 说明 |
+|------|------|
+| 🤖 大模型驱动 | DeepSeek-V3，中英文对话、代码生成、数据分析 |
+| 📡 SSE 流式传输 | 逐字输出，打字机效果，120秒超时支持长回复 |
+| 📝 Markdown 渲染 | 标题、列表、表格、引用、代码块（190+ 语言语法高亮） |
+| 🔒 XSS 安全过滤 | DOMPurify 过滤 AI 输出中的潜在恶意 HTML/JS |
+| 💬 多轮上下文 | 自动携带最近 20 条历史消息，支持连续对话 |
+| 📂 对话管理 | 新建、切换、删除、回收站恢复、永久删除，自动生成标题 |
+| 🛑 中途停止 | 随时停止 AI 生成，已输出内容保留 |
+
+### RAG 知识库
+
+| 功能 | 说明 |
+|------|------|
+| 📄 文档解析 | Apache Tika 提取 PDF/DOCX/DOC/TXT/MD |
+| ✂️ 智能分块 | 递归分割，800字符/块，100字符重叠 |
+| 🔢 向量嵌入 | OpenAI 兼容 Embedding API（支持 OpenAI / 硅基流动 / Ollama） |
+| 🔍 向量检索 | 余弦相似度检索，内存向量库 + MySQL 持久化 |
+| 🔄 启动重建 | 应用重启自动从 MySQL 重建向量索引 |
+| 🗂️ 知识库管理 | 卡片列表、文档表格、处理状态轮询、检索测试面板、软删除 |
 
 ---
 
@@ -120,23 +77,56 @@
 
 | 组件 | 版本 | 用途 |
 |------|------|------|
-| JDK | 21+ | Spring Boot 3.x 运行环境 |
-| MySQL | 8.x | 用户数据持久化 |
-| Redis | 7.x | Token 缓存 + 验证码 + 登录失败计数 + 微信状态 |
+| JDK | 21+ | Spring Boot 3.x |
+| MySQL | 8.x | 数据持久化 |
+| Redis | 7.x | Token 缓存 + 验证码 + 向量状态 |
 | Node.js | 18+ | 前端构建 |
-| Docker | — | 一键启动全部服务（可选，替代 JDK/MySQL/Redis/Node 手动安装） |
-| 163邮箱 | — | 发送注册/绑定验证码（免费，需开启 SMTP） |
-| 微信测试号 | — | 微信扫码登录（免费，无需企业资质） |
-| ngrok | — | 本地开发微信回调公网穿透（免费） |
+| Docker | — | 一键启动（可选，替代手动安装） |
+| DeepSeek API Key | — | AI 对话（新用户赠送 500 万 token） |
+| Embedding API Key | — | RAG 向量嵌入（硅基流动推荐，国内直连） |
+| 163邮箱 | — | 发送验证码（可选，需开启 SMTP） |
+| 微信测试号 | — | 微信扫码登录（可选） |
 
 ### 1. 克隆项目
 
 ```bash
 git clone https://github.com/ZoraCloudSun/springboot_vue3
-cd your_project_name
+cd springboot_vue3
 ```
 
-### 2. 一键启动（Docker Compose，推荐）
+### 2. 配置环境变量
+
+编辑项目根目录的 `.env` 文件：
+
+```env
+# ===== MySQL =====
+MYSQL_ROOT_PASSWORD=root123
+MYSQL_DATABASE=springboot_zyt
+
+# ===== JWT =====
+JWT_SECRET=your-jwt-secret-key-change-in-production
+
+# ===== AI 对话（DeepSeek）=====
+AI_API_KEY=sk-your-deepseek-api-key-here
+AI_BASE_URL=https://api.deepseek.com/v1
+AI_MODEL_NAME=deepseek-chat
+AI_TEMPERATURE=0.7
+AI_MAX_TOKENS=4096
+AI_TIMEOUT_SECONDS=120
+
+# ===== RAG 嵌入模型（OpenAI 兼容）=====
+# 推荐硅基流动 (SiliconFlow) — 国内直连、价格便宜
+AI_EMBEDDING_API_KEY=sk-your-embedding-key
+AI_EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
+AI_EMBEDDING_MODEL=bge-large-zh-v1.5
+```
+
+> **获取 API Key**：
+> - DeepSeek：[platform.deepseek.com](https://platform.deepseek.com)（新用户赠送 500 万 token）
+> - 硅基流动（Embedding）：[siliconflow.cn](https://siliconflow.cn)（国内直连，推荐）
+> - 不配置 Embedding API 不影响普通 AI 对话，但知识库功能不可用
+
+### 3. 一键启动（Docker Compose，推荐）
 
 ```bash
 # 构建并启动所有服务（MySQL + Redis + Spring Boot + Nginx）
@@ -146,50 +136,44 @@ docker compose up -d --build
 docker compose ps
 
 # 访问
-# 前端:      http://localhost
-# API 文档:   http://localhost/doc.html
-# 健康检查:   http://localhost:18080/actuator/health
+# 前端:        http://localhost
+# API 文档:    http://localhost/doc.html
+# 健康检查:    http://localhost:18080/actuator/health
 
 # 可选：数据库管理界面
 docker compose --profile debug up -d     # Adminer → http://localhost:18081
 
-# 停止
+# 停止（保留数据卷）
 docker compose down
+
+# 停止并重置（删除数据库和 Redis 数据）
+docker compose down -v
 ```
 
 > 首次构建需要下载 Docker 镜像和 Maven 依赖，约 3-5 分钟。后续启动只需 `docker compose up -d`，秒级完成。
-> 详细配置（端口、密码、JWT 密钥等）见 `.env` 文件。如果不需要 Docker，也可以手动启动。
 
-### 3. 手动启动（不使用 Docker）
+### 4. 手动启动（开发模式）
 
-> 如果你不使用 Docker，请按以下步骤手动启动各个服务。
+<details>
+<summary>点击展开手动启动步骤</summary>
 
 #### 初始化数据库
 
 ```bash
-# 创建数据库和基础表
 mysql -u root -p < springboot/src/main/resources/init.sql
-
-# 执行微信功能迁移（添加 openid/nickname/avatar 字段）
 mysql -u root -p springboot_zyt < DB_MIGRATION.sql
 ```
 
-#### 配置邮箱
+#### 配置邮箱（可选）
 
-编辑 `springboot/src/main/resources/application.yml`，填入你的 163 邮箱和 SMTP 授权码：
+编辑 `springboot/src/main/resources/application.yml`：
 
 ```yaml
 spring:
   mail:
     username: your_email@163.com
-    password: your_smtp_auth_code  # 非登录密码！
+    password: your_smtp_auth_code  # 非登录密码！需开启 SMTP 获取授权码
 ```
-
-> 📖 获取授权码：登录 [mail.163.com](https://mail.163.com) → 设置 → POP3/SMTP/IMAP → 开启 SMTP → 获取授权码
-
-#### （可选）配置微信扫码登录
-
-详见 [WECHAT_SETUP_GUIDE.md](WECHAT_SETUP_GUIDE.md)。如果暂不需要微信登录，跳过此步骤不影响密码登录功能。
 
 #### 启动后端
 
@@ -198,7 +182,7 @@ cd springboot
 mvn spring-boot:run
 # → http://localhost:8080
 
-# 运行单元测试（171 个测试，~10 秒）
+# 运行单元测试（196 个测试，~10 秒）
 mvn test
 ```
 
@@ -211,66 +195,207 @@ npm run dev
 # → http://localhost:3000
 ```
 
-#### 设置管理员（RBAC）
+#### 设置管理员
 
 ```bash
-# 注册一个账号后，用 MySQL 手动将其提升为管理员
 mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email = 'your_admin@example.com';"
 ```
 
-#### 开始使用
+</details>
 
-1. 浏览器访问 `http://localhost:3000`
-2. 点击底部「注册账号」→ 输入邮箱 → 发送验证码 → 注册
-3. 返回登录页 → 输入邮箱 + 密码 + 图形验证码 → 登录
-4. 或切换到「微信登录」Tab → 扫码 → 已绑定直接登录 / 新用户绑定邮箱 → 自动登录
-5. 管理员用户登录后，首页会显示「管理后台」入口，可查看所有注册用户
+### 5. 开始使用
+
+1. 访问 `http://localhost:3000`（或 `http://localhost` Docker 模式）
+2. **注册**：点击「注册账号」→ 输入邮箱 → 发送验证码 → 设置密码
+3. **登录**：邮箱 + 密码 + 图形验证码（或切换到微信扫码登录）
+4. **AI 对话**：登录后进入「AI 对话」→ 发送消息 → 体验流式对话
+5. **RAG 知识库**：进入「知识库」→ 创建知识库 → 上传文档 → 在对话中开启 RAG 开关
+
+---
+
+## 项目结构
+
+```
+├── springboot/                              # 后端 Spring Boot 工程
+│   ├── pom.xml                              # Maven 配置
+│   ├── Dockerfile                           # 多阶段构建（Maven → JRE）
+│   └── src/main/
+│       ├── java/com/zyt/
+│       │   ├── AppStart.java                # 启动类
+│       │   ├── config/                      # 配置类
+│       │   │   ├── AiConfig.java            # LangChain4j 流式模型配置
+│       │   │   ├── RagConfig.java           # Embedding 模型 + 向量存储
+│       │   │   ├── Knife4jConfig.java       # OpenAPI 3 文档配置
+│       │   │   ├── SecurityConfig.java      # Spring Security（仅 BCrypt）
+│       │   │   ├── WebConfig.java           # 拦截器注册 + CORS
+│       │   │   ├── LoginInterceptor.java    # JWT Token 校验
+│       │   │   ├── RoleInterceptor.java     # RBAC 角色校验
+│       │   │   ├── MyConfig.java            # MyBatis-Plus 分页插件
+│       │   │   └── WechatConfig.java        # 微信 OAuth 配置
+│       │   ├── controller/                  # REST 控制器
+│       │   │   ├── AiChatController.java    # AI 对话 + SSE 流式 + RAG 对话
+│       │   │   ├── RagController.java       # RAG 知识库 CRUD（9 个端点）
+│       │   │   └── UserController.java      # 用户认证（16 个端点）
+│       │   ├── service/                     # 业务逻辑
+│       │   │   ├── AiChatService.java       # AI 对话接口
+│       │   │   ├── RagService.java          # 知识库 CRUD + 检索
+│       │   │   ├── RagProcessingService.java # 文档处理管道 + 启动重建
+│       │   │   ├── UserService.java         # 用户认证接口
+│       │   │   └── impl/                    # 实现类
+│       │   │       ├── AiChatServiceImpl.java    # AI 对话 + RAG 上下文注入
+│       │   │       ├── RagServiceImpl.java       # 知识库业务（~340 行）
+│       │   │       ├── RagProcessingServiceImpl.java # Tika 解析 + 分块 + Embedding
+│       │   │       ├── SimpleEmbeddingStore.java  # 余弦相似度向量存储
+│       │   │       └── UserServiceImpl.java       # 用户认证完整业务
+│       │   ├── entity/                      # 实体类
+│       │   │   ├── User.java                # 用户（id, email, password, openid, role...）
+│       │   │   ├── ChatConversation.java    # 对话会话
+│       │   │   ├── ChatMessage.java         # 对话消息
+│       │   │   ├── KnowledgeBase.java       # 知识库
+│       │   │   ├── KbDocument.java          # 文档（含处理状态）
+│       │   │   └── KbChunk.java             # 文本块
+│       │   ├── mapper/                      # MyBatis-Plus Mapper
+│       │   │   ├── UserMapper.java
+│       │   │   ├── ChatConversationMapper.java
+│       │   │   ├── ChatMessageMapper.java
+│       │   │   ├── KnowledgeBaseMapper.java
+│       │   │   ├── KbDocumentMapper.java
+│       │   │   └── KbChunkMapper.java
+│       │   ├── exception/                   # 全局异常处理
+│       │   │   └── GlobalExceptionHandler.java
+│       │   └── utils/                       # 工具类
+│       │       ├── JwtUtil.java             # JWT 生成/解析/类型校验
+│       │       ├── CaptchaUtil.java         # 图形验证码生成（AWT）
+│       │       ├── EmailUtil.java           # 163邮箱 SMTP 异步发送
+│       │       ├── WechatUtil.java          # 微信 API 调用
+│       │       ├── ResponseUtil.java        # 统一响应体
+│       │       ├── FileTypeUtil.java        # 文件类型检测 + 大小校验
+│       │       └── TextSplitterUtil.java    # 递归文本分割器
+│       └── resources/
+│           ├── application.yml              # 应用配置
+│           ├── init.sql                     # 数据库初始化
+│           └── db/migration/                # 数据库迁移
+│               ├── V2__chat_tables.sql      # AI 对话表
+│               └── V3__rag_tables.sql       # RAG 知识库/文档/块表
+│   └── src/test/                            # 单元测试（196 个，JUnit 5 + Mockito + MockMvc）
+│       └── java/com/zyt/
+│           ├── utils/                       # 工具类测试
+│           ├── service/                     # Service 层测试（含 RAG）
+│           ├── config/                      # 拦截器测试
+│           ├── controller/                  # Controller 测试（含 RAG）
+│           └── exception/                   # 异常处理测试
+├── web/frontend/                            # 前端 Vue 3 + Vite 工程
+│   ├── Dockerfile                           # 多阶段构建（Node → Nginx）
+│   ├── nginx.conf                           # Nginx 配置（SPA + SSE + API 代理）
+│   ├── vite.config.js                       # Vite 配置（代理 + 按需导入）
+│   └── src/
+│       ├── main.js                          # 入口
+│       ├── App.vue                          # 根组件
+│       ├── style.css                        # 全局样式 + 响应式
+│       ├── views/                           # 页面组件
+│       │   ├── Login.vue                    # 登录页（密码 + 微信双Tab）
+│       │   ├── Register.vue                 # 注册页
+│       │   ├── Home.vue                     # 首页（认证系统 + AI + 知识库入口）
+│       │   ├── Chat.vue                     # AI 对话页（含 RAG 开关 + 知识库选择器）
+│       │   └── KnowledgeBase.vue            # 知识库管理页（~320 行）
+│       ├── api/                             # API 封装
+│       │   ├── index.js                     # Axios 实例 + 拦截器（自动刷新 Token）
+│       │   ├── user.js                      # 用户认证 API（12 个函数）
+│       │   ├── ai.js                        # AI 对话 API（含 SSE 流式）
+│       │   └── rag.js                       # RAG 知识库 API
+│       ├── router/index.js                  # 路由配置 + 导航守卫
+│       └── utils/token.js                   # localStorage Token 存取
+├── docker-compose.yml                       # Docker 容器编排（5 服务一键启动）
+├── .env                                     # 环境变量（端口、密码、API Key）
+├── DB_MIGRATION.sql                         # 数据库迁移脚本
+├── P0_SECURITY_FIX.md                       # P0 安全修复文档
+├── P1_SECURITY_FIX.md                       # P1 安全修复文档
+├── WECHAT_SETUP_GUIDE.md                    # 微信扫码登录配置指南
+├── 项目构建教程.md                           # 用户认证系统 28 步构建教程
+├── 项目构建教程2.md                          # AI 对话 + RAG 知识库详细实现
+└── CLAUDE.md                                # 项目架构与开发规范
+```
 
 ---
 
 ## API 概览
 
-### 基础认证
+### 用户认证
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|:----:|------|
 | GET | `/user/captcha` | 否 | 获取图形验证码 |
-| POST | `/user/send-code` | 否 | 发送邮箱验证码（注册用，已注册邮箱拒绝） |
-| POST | `/user/send-bind-code` | 否 | 发送邮箱验证码（微信绑定用，允许已注册邮箱） |
+| POST | `/user/send-code` | 否 | 发送邮箱验证码（注册用） |
 | POST | `/user/register` | 否 | 邮箱验证码注册 |
-| POST | `/user/login` | 否 | 登录（图形验证码 + 5次失败锁定15分钟） |
-| POST | `/user/logout` | accessToken | 登出（清除 Redis Token） |
+| POST | `/user/login` | 否 | 密码登录（图形验证码 + 5次失败锁定） |
+| POST | `/user/logout` | accessToken | 登出 |
 | POST | `/user/refresh` | refreshToken | 刷新 accessToken（强制 type=refresh） |
 | GET | `/user/info` | accessToken | 鉴权探针 |
+| GET | `/user/me` | accessToken | 获取当前用户信息（含角色） |
+| POST | `/user/wechat/qrcode` | 否 | 生成微信扫码场景 |
+| GET | `/user/wechat/check` | 否 | 轮询扫码状态 |
+| GET | `/user/wechat/callback` | 否 | 微信 OAuth 回调 |
+| POST | `/user/wechat/bind-email` | 否 | 微信扫码后绑定邮箱 |
+| POST | `/user/forgot-password/send-code` | 否 | 发送密码重置验证码 |
+| POST | `/user/forgot-password/reset` | 否 | 验证码校验 + 重置密码 |
+| GET | `/user/admin/users` | accessToken + admin | 管理员分页查询所有用户 |
 
-### 微信扫码登录
+### AI 对话
 
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|:----:|------|
-| POST | `/user/wechat/qrcode` | 否 | 生成扫码场景，返回 sceneId + 真实微信 OAuth URL |
-| GET | `/user/wechat/check` | 否 | 轮询扫码状态：pending / scanned / confirmed / expired |
-| GET | `/user/wechat/callback` | 否 | 微信 OAuth 回调（返回 HTML，手机浏览器访问） |
-| POST | `/user/wechat/bind-email` | 否 | 扫码后绑定邮箱，创建/关联用户 + 签发 JWT |
+| 方法 | 路径 | 说明 | 认证 |
+|------|------|------|:----:|
+| POST | `/ai/chat/stream` | SSE 流式对话 | ✅ |
+| POST | `/ai/chat/rag-stream` | SSE RAG 流式对话（传 knowledgeBaseId） | ✅ |
+| GET | `/ai/conversations` | 获取对话列表 | ✅ |
+| POST | `/ai/conversations` | 新建对话 | ✅ |
+| GET | `/ai/conversations/{id}` | 获取对话消息 | ✅ |
+| DELETE | `/ai/conversations/{id}` | 删除对话（移至回收站） | ✅ |
+| GET | `/ai/conversations/trash` | 获取回收站列表 | ✅ |
+| POST | `/ai/conversations/{id}/restore` | 恢复已删除对话 | ✅ |
+| DELETE | `/ai/conversations/{id}/permanent` | 永久删除对话 | ✅ |
 
-### 邮箱找回密码
+### RAG 知识库
 
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|:----:|------|
-| POST | `/user/forgot-password/send-code` | 否 | 发送密码重置验证码（仅已注册邮箱） |
-| POST | `/user/forgot-password/reset` | 否 | 验证码校验 + 重置密码 + 踢掉所有设备 |
+| 方法 | 路径 | 说明 | 认证 |
+|------|------|------|:----:|
+| POST | `/rag/knowledge-bases` | 创建知识库 | ✅ |
+| GET | `/rag/knowledge-bases` | 列出用户的知识库 | ✅ |
+| GET | `/rag/knowledge-bases/{id}` | 获取知识库详情 + 文档列表 | ✅ |
+| PUT | `/rag/knowledge-bases/{id}` | 更新知识库名称/描述 | ✅ |
+| DELETE | `/rag/knowledge-bases/{id}` | 软删除知识库 | ✅ |
+| POST | `/rag/knowledge-bases/{id}/documents` | 上传文档（multipart，≤10MB） | ✅ |
+| GET | `/rag/knowledge-bases/{id}/documents` | 列出文档（含处理状态和块数） | ✅ |
+| DELETE | `/rag/knowledge-bases/{id}/documents/{docId}` | 删除文档 | ✅ |
+| POST | `/rag/knowledge-bases/{id}/query` | 测试检索（返回相关块+分数） | ✅ |
 
-### RBAC 角色权限
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| GET | `/user/me` | accessToken | 获取当前登录用户信息（含角色） |
-| GET | `/user/admin/users` | accessToken + admin | 管理员分页查询所有用户（不含密码） |
+> 📖 在线调试：启动后端后访问 `http://localhost:8080/doc.html`（Knife4j 接口文档，支持在线发送请求）
 
 ---
 
 ## 架构设计
 
-### 鉴权链路
+### 整体架构
+
+```
+┌──────────────────┐     SSE/JSON/HTTP     ┌───────────────────┐     OpenAI API     ┌───────────┐
+│    Vue 3 前端      │ ←──────────────────→ │   Spring Boot 后端  │ ←───────────────→ │  DeepSeek │
+│                    │     Nginx 代理        │                    │     HTTPS         │    API    │
+│  • Login/Register  │                      │  • 用户认证 (JWT)   │                   │           │
+│  • Chat.vue        │                      │  • AI 对话 (LLM)   │                   │           │
+│  • KnowledgeBase   │                      │  • RAG 知识库       │                   │           │
+│  • Home.vue        │                      │  • 全局异常处理     │                   │           │
+└────────┬───────────┘                      └─────────┬─────────┘                   └───────────┘
+         │                                            │                                  │
+         │ localStorage                               │ MySQL (用户/对话/消息/知识库)      │ Embedding API
+         │ (JWT Token)                                │ Redis (Token/验证码/状态)         │ (OpenAI 兼容)
+         ▼                                            ▼                                  ▼
+┌──────────────────┐                      ┌───────────────────┐                   ┌───────────┐
+│    浏览器          │                      │     数据库          │                   │ Embedding │
+└──────────────────┘                      └───────────────────┘                   │  Service  │
+                                                                                   └───────────┘
+```
+
+### 认证鉴权链路
 
 ```
 浏览器 → Vue Router（前端路由守卫）
@@ -280,6 +405,7 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
          ├─ JWT 签名 + 过期校验
          ├─ Redis 比对（单设备登录）
          └─ 放行/拒绝
+       → RoleInterceptor（@RequireRole 注解检查）
        → Controller → Service → Mapper → DB
 ```
 
@@ -288,8 +414,8 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 ```
 accessToken 过期（30min）
   → 后端 401 + "Token 已失效"
-  → Axios 响应拦截器
-    ├─ isRefreshing = true
+  → Axios 响应拦截器捕获
+    ├─ isRefreshing 锁（并发请求只刷新一次）
     ├─ POST /user/refresh（携带 refreshToken，校验 type=refresh）
     ├─ 获取新 accessToken → 更新 localStorage
     ├─ 重放 pendingRequests 队列中的所有请求
@@ -300,57 +426,37 @@ refreshToken 也过期（7天）
   → 清除 Token → 跳转登录页
 ```
 
-### 微信 OAuth 流程
+### RAG 知识库管道
 
 ```
-                      ┌── openid 已绑定（老用户）
-                      │   直接签发 Token → confirmed → 自动登录
-                      │   用户零操作，秒进
-PC 浏览器   手机微信   后端
-  │           │        │
-  │ POST /wechat/qrcode
-  │ ← sceneId + OAuth URL
-  │ 生成二维码 │        │
-  │ 开始轮询   │        │
-  │           │ 微信扫码 │
-  │           │ 确认授权 │
-  │           │ ───→ GET /wechat/callback
-  │           │      code → openid
-  │           │      查 DB: openid?
-  │           │      │
-  │           │      ├── 已绑定 → confirmed → 直接登录 ✅
-  │           │      │
-  │ 轮询 confirmed       │
-  │ ← Token ────────────│
-  │ 自动登录 → /home     │
-  │           │      │
-  │           │      └── 未绑定 → scanned → 等待邮箱绑定
-  │ 轮询 scanned         │
-  │ 展示头像+绑定表单     │
-  │ POST /wechat/bind-email
-  │ ← JWT Token ──────│── 创建/关联用户 → confirmed
-  │ 自动登录 → /home     │
+上传文档 (PDF/DOCX/DOC/TXT/MD)
+  → Apache Tika 文本提取
+    → TextSplitterUtil 递归分块 (800 chars / 100 overlap)
+      → OpenAiEmbeddingModel 向量嵌入
+        → SimpleEmbeddingStore 内存向量库 (余弦相似度)
+           ↓
+RAG 对话 → embed(用户问题) → 检索 Top-K 相关块 → 注入 System Prompt → SSE 流式输出
 ```
 
----
+### SSE 流式传输链路
+
+```
+DeepSeek API (chunked response)
+  → OpenAiStreamingChatModel (HTTP client)
+    → StreamingChatResponseHandler.onPartialResponse(token)
+      → Flux.create() sink.next(token)
+        → Spring MVC (text/event-stream)
+          → Nginx (proxy_buffering off)
+            → 浏览器 fetch ReadableStream
+              → 解析 data: 行 → onToken()
+                → streamingContent += token
+                  → v-html="renderMarkdown(streamingContent)"
+                    → 用户看到逐字出现的回复
+```
 
 ### 全局异常处理
 
-采用 Spring MVC 标准 `@RestControllerAdvice` 统一捕获所有异常，替代 Service 层手动 `return new ResponseUtil(400, ...)` 的旧模式。
-
-**异常层次结构**：
-
-```
-RuntimeException
-  └── BusinessException（基类，携带 code + msg + data）
-        ├── BadRequestException     → 400 参数校验失败
-        ├── UnauthorizedException   → 401 未认证
-        ├── ForbiddenException      → 403 权限不足
-        ├── NotFoundException       → 404 资源不存在
-        └── RateLimitException      → 429 频率限制
-```
-
-**错误数据流**：
+采用 Spring MVC 标准 `@RestControllerAdvice` 统一捕获所有异常：
 
 ```
 Service 层:
@@ -362,36 +468,21 @@ GlobalExceptionHandler:
   → ResponseEntity.ok(body)   ← HTTP 200，body.code = 400
        │
        ▼
-Axios 成功拦截器:
+Axios 响应拦截器:
   if (res.code !== 200) → ElMessage.error("邮箱不能为空")
 ```
 
-**关键设计**：
-- 只有 401（`UnauthorizedException`）返回真实 HTTP 401，因为前端 Axios 错误拦截器靠 `response.status === 401` 触发 Token 自动刷新
-- 其他业务异常统一返回 HTTP 200，body.code 为实际错误码，由 Axios 成功拦截器统一提取 `response.data.msg` 显示
-- 拦截器（LoginInterceptor / RoleInterceptor）在 Controller 之前执行，不经过 `@ControllerAdvice`——它们使用 `ResponseUtil.toJsonError()` 安全写入 JSON
-- 兜底 `@ExceptionHandler(Exception.class)` 记录完整堆栈到日志，客户端只看到通用 "服务器内部错误"
+**异常层次结构**：
 
----
-
-### Knife4j 接口文档
-
-基于 OpenAPI 3 + Knife4j 4.x 自动生成在线调试文档，访问 `http://localhost:8080/doc.html`。
-
-**技术组合**：`knife4j-openapi3-jakarta-spring-boot-starter` 4.5.0（Spring Boot 3.x Jakarta 版本）
-
-**四大功能分组**（通过 `@Tag` 注解实现）：
-
-| 分组 | 端点 | 说明 |
-|------|:----:|------|
-| 基础认证 | 7 | 验证码、注册、登录、登出、Token 刷新、鉴权探针 |
-| 微信扫码登录 | 5 | 生成二维码、轮询状态、回调（隐藏）、邮箱绑定、发送验证码 |
-| 邮箱找回密码 | 2 | 发送重置码、重置密码 |
-| RBAC 角色权限 | 2 | 管理员用户列表、当前用户信息 |
-
-**全局 Authorize 机制**：右上角填入 accessToken → 所有接口自动携带 `Authorization` header → 在线调试无需每个接口重复填写。使用 `SecurityScheme.Type.APIKEY` 而非 `HTTP (Bearer)`，因为本项目 Token 不需要 "Bearer " 前缀。
-
-**离线文档导出**：Knife4j UI → 文档管理 → 导出 Markdown / HTML / OpenAPI JSON，可提交到项目 Wiki。
+```
+RuntimeException
+  └── BusinessException（基类，携带 code + msg）
+        ├── BadRequestException     → 400 参数校验失败
+        ├── UnauthorizedException   → 401 未认证（唯一返回真实 HTTP 401 的异常）
+        ├── ForbiddenException      → 403 权限不足
+        ├── NotFoundException       → 404 资源不存在
+        └── RateLimitException      → 429 频率限制
+```
 
 ---
 
@@ -403,24 +494,14 @@ Axios 成功拦截器:
 | 认证层 | JWT HMAC-SHA256 | 签名防篡改，30min 短时效降低泄露风险 |
 | 类型校验 | JWT `type` claim | `/refresh` 强制校验 `type=refresh`，防 accessToken 无限续期 |
 | 密码存储 | BCrypt | 自适应哈希，自带随机盐，抗彩虹表 |
-| 防刷 | 图形验证码 + 60秒间隔 | 发送验证码前校验图形验证码，同邮箱 60 秒内不可重复发送 |
+| 防刷 | 图形验证码 + 60s 间隔 | 发送验证码前校验，同邮箱 60 秒内不可重复发送 |
 | 防暴力破解 | Redis INCR + HTTP 429 | 5 次失败锁定 15 分钟，TTL 仅首次设置防绕过 |
 | 防用户枚举 | 统一错误提示 | 所有登录失败统一返回「邮箱或密码错误」 |
 | 单设备登录 | Redis Token 缓存 | 新登录自动踢掉旧设备 |
+| XSS 防护 | DOMPurify | 过滤 AI 输出中的潜在恶意 HTML/JS |
+| AI 注入防护 | System Prompt 规则 | 禁止模型执行敏感操作，限制回答范围 |
 | CSRF | 显式禁用 + JWT 无状态 | JWT 不依赖 Cookie，天然免疫 CSRF |
 | OAuth 安全 | state 参数（sceneId） | 防 CSRF 攻击，回调时校验 |
-
----
-
-## 文档索引
-
-| 文档 | 说明 |
-|------|------|
-| [项目构建教程.md](项目构建教程.md) | **28 步完整分步构建教程**，涵盖每个设计决策的原理和选型理由 |
-| [WECHAT_SETUP_GUIDE.md](WECHAT_SETUP_GUIDE.md) | 微信扫码登录完整配置指南：测试号获取→ngrok→架构图→测试→FAQ |
-| [P0_SECURITY_FIX.md](P0_SECURITY_FIX.md) | P0 安全修复记录：Token 类型校验 + 暴力破解防护 |
-| [DB_MIGRATION.sql](DB_MIGRATION.sql) | 数据库迁移脚本：添加微信字段 |
-| [APITest.http](springboot/APITest.http) | HTTP Client 测试文件，覆盖全部 16 个端点的 40+ 个场景（含自动 Token 捕获） |
 
 ---
 
@@ -434,11 +515,16 @@ Axios 成功拦截器:
 | MyBatis-Plus | 3.5.12 | ORM（BaseMapper 免写 SQL + 分页插件） |
 | MySQL | 8.x | 持久化存储 |
 | Redis | 7.x | Token 缓存 + 验证码 + 登录失败计数 + 微信状态 |
+| LangChain4j | 1.15.0 | AI 应用框架（Java 原生，流式对话 + Embedding） |
+| DeepSeek Chat | V3 | 大语言模型（兼容 OpenAI API） |
+| Apache Tika | 2.9.2 | 文档文本提取（PDF/DOCX/DOC/TXT/MD） |
 | Spring Security | 6.x | BCrypt 密码加密 |
 | jjwt | 0.12.6 | JWT 生成/解析/类型校验 |
 | JavaMail | 3.5.11 | 163 邮箱 SMTP 验证码发送 |
 | Java AWT | JDK 内置 | 图形验证码绘制 |
-| Jackson | 2.x | JSON 序列化（微信 API 响应解析） |
+| Jackson | 2.x | JSON 序列化 |
+| Knife4j | 4.5.0 | OpenAPI 3 接口文档 + 在线调试 |
+| WebFlux | — | SSE 流式响应（`Flux<String>`） |
 
 ### 前端
 
@@ -450,18 +536,111 @@ Axios 成功拦截器:
 | Vue Router | 4.x | 前端路由 + 导航守卫 |
 | Axios | 1.16 | HTTP 客户端 + 拦截器 |
 | qrcode | 1.5 | 前端 Canvas 二维码生成 |
+| marked | — | Markdown → HTML 转换 |
+| highlight.js | — | 代码语法高亮（190+ 语言） |
+| DOMPurify | — | XSS 防护（过滤 AI 输出） |
+| 原生 fetch | — | SSE 流式读取（Axios 不支持 ReadableStream） |
 
 ---
 
-## 后续规划
+## 测试
 
+**框架**：JUnit 5 + Mockito + Spring MockMvc (standalone setup)，196 个测试，纯单元测试 — 无需 MySQL/Redis/网络，CI 就绪。
+
+```bash
+cd springboot
+mvn test   # ~10 秒，0 failures
+```
+
+**三层 Mock 策略**：
+
+| 层级 | 模式 | 测试类 |
+|------|------|--------|
+| 纯 JUnit 5 | `@Test` only | `ResponseUtilTest`, `CaptchaUtilTest`, `JwtUtilTest` |
+| Mockito + ReflectionTestUtils | `@InjectMocks` / `@Mock` / `@Spy` | `UserServiceImplTest`, `LoginInterceptorTest`, `RagServiceImplTest` |
+| Standalone MockMvc | `MockMvcBuilders.standaloneSetup()` | `UserControllerTest`, `RagControllerTest`, `GlobalExceptionHandlerTest` |
+
+---
+
+## 切换 LLM 提供商
+
+修改 `.env` 中的三个变量即可，LangChain4j 的 `OpenAiStreamingChatModel` 兼容所有 OpenAI API 格式的服务商：
+
+```env
+# OpenAI
+AI_API_KEY=sk-your-openai-key
+AI_BASE_URL=https://api.openai.com/v1
+AI_MODEL_NAME=gpt-4o
+
+# 本地 Ollama
+AI_API_KEY=ollama
+AI_BASE_URL=http://localhost:11434/v1
+AI_MODEL_NAME=qwen2.5
+
+# 其他兼容服务商（通义千问 / 智谱 / Moonshot 等）
+AI_API_KEY=sk-your-key
+AI_BASE_URL=https://your-provider-api-url/v1
+AI_MODEL_NAME=your-model-name
+```
+
+---
+
+## 路线图
+
+### ✅ Phase 1：用户认证系统（已完成）
+
+- [x] 图形验证码 + 邮箱验证码注册
+- [x] JWT 双 Token 鉴权 + 无感刷新
+- [x] 微信 OAuth 扫码登录
+- [x] RBAC 角色权限控制
+- [x] 暴力破解防护 + 单设备登录
 - [x] 邮箱找回密码
-- [x] 角色权限控制（RBAC）
 - [x] 全局异常处理（`@ControllerAdvice`）
-- [x] Swagger / Knife4j 接口文档
-- [x] 单元测试（JUnit 5 + MockMvc）— 171 个测试，8 个测试类，覆盖全链路
+- [x] Knife4j 接口文档
+- [x] 171 个单元测试
 - [x] Docker 容器化（docker-compose 一键启动）
 - [x] GitHub Actions CI/CD
+
+### ✅ Phase 2：AI 智能对话 + RAG 知识库（已完成）
+
+- [x] LangChain4j + DeepSeek 集成
+- [x] SSE 流式传输 + Markdown 渲染
+- [x] 多轮上下文对话 + 对话历史管理
+- [x] Apache Tika 文档解析（PDF/DOCX/TXT/MD）
+- [x] 递归文本分块 + OpenAI 兼容 Embedding
+- [x] 自实现余弦相似度向量存储
+- [x] RAG 检索增强生成 + 知识库管理界面
+- [x] 启动时向量索引自动重建
+- [x] 196 个单元测试（新增 12 个 RAG 测试）
+
+### 🔜 Phase 3：AI Agent 智能体
+
+- [ ] LangChain4j Tool Calling
+- [ ] 内置工具：网页搜索、数学计算、代码执行
+- [ ] Agent 可视化推理过程
+- [ ] 记忆摘要 + 长期记忆
+- [ ] LangGraph4j 多 Agent 编排
+
+### 🔜 Phase 4：智能搜索与分析
+
+- [ ] 全文搜索引擎
+- [ ] 对话数据分析仪表盘
+- [ ] 用户行为分析
+- [ ] 智能推荐
+
+---
+
+## 文档索引
+
+| 文档 | 说明 |
+|------|------|
+| [CLAUDE.md](CLAUDE.md) | 项目架构与开发规范（含 RAG 完整文档） |
+| [项目构建教程.md](项目构建教程.md) | 用户认证系统 28 步完整构建过程 |
+| [项目构建教程2.md](项目构建教程2.md) | AI 智能对话 + RAG 知识库详细实现 |
+| [WECHAT_SETUP_GUIDE.md](WECHAT_SETUP_GUIDE.md) | 微信扫码登录完整配置指南 |
+| [P0_SECURITY_FIX.md](P0_SECURITY_FIX.md) | P0 安全修复记录：Token 类型校验 + 暴力破解防护 |
+| [P1_SECURITY_FIX.md](P1_SECURITY_FIX.md) | P1 安全修复记录 |
+| [DB_MIGRATION.sql](DB_MIGRATION.sql) | 数据库迁移脚本 |
 
 ---
 

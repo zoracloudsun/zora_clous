@@ -42,6 +42,12 @@ const routes = [
     component: () => import('@/views/Chat.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/knowledge',
+    name: 'Knowledge',
+    component: () => import('@/views/KnowledgeBase.vue'),
+    meta: { requiresAuth: true },
+  },
 ]
 
 const router = createRouter({
