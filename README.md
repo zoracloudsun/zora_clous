@@ -367,6 +367,13 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 | GET | `/rag/knowledge-bases/{id}/documents` | 列出文档（含处理状态和块数） | ✅ |
 | DELETE | `/rag/knowledge-bases/{id}/documents/{docId}` | 删除文档 | ✅ |
 | POST | `/rag/knowledge-bases/{id}/query` | 测试检索（返回相关块+分数） | ✅ |
+| GET | `/rag/recycle-bin` | 获取知识库回收站列表 | ✅ |
+| PUT | `/rag/recycle-bin/{kbId}/restore` | 恢复知识库及文档 | ✅ |
+| DELETE | `/rag/recycle-bin/{kbId}` | 永久删除知识库（不可逆） | ✅ |
+| GET | `/rag/knowledge-bases/{kbId}/recycle-bin` | 获取文档回收站列表（按KB） | ✅ |
+| PUT | `/rag/knowledge-bases/{kbId}/recycle-bin/{docId}/restore` | 恢复文档（重新嵌入向量） | ✅ |
+| DELETE | `/rag/knowledge-bases/{kbId}/recycle-bin/{docId}` | 永久删除文档（不可逆） | ✅ |
+| DELETE | `/rag/knowledge-bases/{kbId}/recycle-bin` | 清空文档回收站 | ✅ |
 
 > 📖 在线调试：启动后端后访问 `http://localhost:8080/doc.html`（Knife4j 接口文档，支持在线发送请求）
 

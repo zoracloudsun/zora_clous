@@ -57,6 +57,47 @@ export function queryKnowledgeBase(kbId, query, maxResults = 5, minScore = 0.3) 
   return request.post(`/rag/knowledge-bases/${kbId}/query`, { query, maxResults, minScore })
 }
 
+// ==================== 回收站 ====================
+
+// ---- 知识库级别 ----
+
+/** 获取知识库回收站列表（已删除的知识库） */
+export function listDeletedKnowledgeBases() {
+  return request.get('/rag/recycle-bin')
+}
+
+/** 恢复知识库及其所有文档 */
+export function restoreKnowledgeBase(kbId) {
+  return request.put(`/rag/recycle-bin/${kbId}/restore`)
+}
+
+/** 永久删除知识库（不可逆） */
+export function permanentlyDeleteKnowledgeBase(kbId) {
+  return request.delete(`/rag/recycle-bin/${kbId}`)
+}
+
+// ---- 文档级别（按知识库）----
+
+/** 获取指定知识库的文档回收站列表 */
+export function listDeletedDocuments(kbId) {
+  return request.get(`/rag/knowledge-bases/${kbId}/recycle-bin`)
+}
+
+/** 从回收站恢复文档（重新嵌入向量） */
+export function restoreDocument(kbId, docId) {
+  return request.put(`/rag/knowledge-bases/${kbId}/recycle-bin/${docId}/restore`)
+}
+
+/** 永久删除文档（不可逆） */
+export function permanentlyDeleteDocument(kbId, docId) {
+  return request.delete(`/rag/knowledge-bases/${kbId}/recycle-bin/${docId}`)
+}
+
+/** 清空指定知识库的文档回收站 */
+export function emptyDocumentRecycleBin(kbId) {
+  return request.delete(`/rag/knowledge-bases/${kbId}/recycle-bin`)
+}
+
 // ==================== RAG 增强对话（SSE 流式）====================
 
 /**

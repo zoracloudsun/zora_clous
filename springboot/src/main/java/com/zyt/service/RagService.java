@@ -69,4 +69,88 @@ public interface RagService {
 
     /** 物理删除超过 30 天的软删除知识库/文档/块 */
     int cleanupOldDeletedRecords();
+
+    // ==================== 回收站（知识库级别）====================
+
+    /**
+     * 列出当前用户所有已软删除的知识库
+     * <p>
+     * 查询所有 {@code deleted_at IS NOT NULL} 的知识库，返回含文档数量的列表。
+     * </p>
+     *
+     * @param email 当前用户邮箱
+     * @return 已删除知识库列表，每项含 id、name、description、documentCount、deletedAt 等字段
+     */
+    List<Map<String, Object>> listDeletedKnowledgeBases(String email);
+
+    /**
+     * 从回收站恢复知识库及其所有文档
+     * <p>
+     * 将知识库及旗下所有文档的 {@code deleted_at} 设为 null，
+     * 并重新嵌入所有文档的文本块到向量库。
+     * </p>
+     *
+     * @param email 当前用户邮箱
+     * @param kbId  要恢复的知识库 ID
+     */
+    void restoreKnowledgeBase(String email, Long kbId);
+
+    /**
+     * 永久删除知识库（不可逆操作）
+     * <p>
+     * 依次：删除旗下所有文档的磁盘文件 → 移除向量 → 物理删除 chunks →
+     * 物理删除 documents → 物理删除 knowledge_base 记录。
+     * </p>
+     *
+     * @param email 当前用户邮箱
+     * @param kbId  要永久删除的知识库 ID
+     */
+    void permanentlyDeleteKnowledgeBase(String email, Long kbId);
+
+    // ==================== 回收站（文档级别，按知识库）====================
+
+    /**
+     * 列出指定知识库中所有已软删除的文档
+     *
+     * @param email 当前用户邮箱
+     * @param kbId  知识库 ID
+     * @return 已删除文档列表，每项含 id、filename、fileType、fileSize、status、deletedAt 等字段
+     */
+    List<Map<String, Object>> listDeletedDocuments(String email, Long kbId);
+
+    /**
+     * 从回收站恢复文档
+     * <p>
+     * 将软删除文档的 {@code deleted_at} 设为 null，重新嵌入其文本块到向量库。
+     * 若所属知识库也处于软删除状态，则一并自动恢复。
+     * </p>
+     *
+     * @param email 当前用户邮箱
+     * @param docId 要恢复的文档 ID
+     */
+    void restoreDocument(String email, Long docId);
+
+    /**
+     * 永久删除文档（不可逆操作）
+     * <p>
+     * 依次：删除磁盘文件 → 移除向量 → 物理删除 kb_chunk → 物理删除 kb_document。
+     * 仅可对已软删除（在回收站中）的文档执行。
+     * </p>
+     *
+     * @param email 当前用户邮箱
+     * @param docId 要永久删除的文档 ID
+     */
+    void permanentlyDeleteDocument(String email, Long docId);
+
+    /**
+     * 一键清空指定知识库的文档回收站
+     * <p>
+     * 永久删除该知识库回收站中的所有文档。每个文档独立删除，单个失败不影响其他。
+     * </p>
+     *
+     * @param email 当前用户邮箱
+     * @param kbId  知识库 ID
+     * @return 成功删除的文档数量
+     */
+    int emptyDocumentRecycleBin(String email, Long kbId);
 }

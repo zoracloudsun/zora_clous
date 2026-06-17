@@ -218,4 +218,111 @@ class RagControllerTest {
                     .andExpect(jsonPath("$.data[0].filename").value("readme.md"));
         }
     }
+
+    @Nested
+    @DisplayName("回收站")
+    class RecycleBin {
+
+        // ==================== KB 级别 ====================
+
+        @Test
+        @DisplayName("GET /rag/recycle-bin：获取知识库回收站列表 → 200")
+        void shouldListDeletedKbs() throws Exception {
+            List<Map<String, Object>> items = new ArrayList<>();
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", 1L);
+            item.put("name", "已删除的库");
+            item.put("documentCount", 2);
+            item.put("deletedAt", "2025-01-01T00:00:00");
+            items.add(item);
+            when(ragService.listDeletedKnowledgeBases(TEST_EMAIL)).thenReturn(items);
+
+            mockMvc.perform(get("/rag/recycle-bin")
+                            .requestAttr("userEmail", TEST_EMAIL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.data[0].name").value("已删除的库"))
+                    .andExpect(jsonPath("$.data[0].documentCount").value(2));
+        }
+
+        @Test
+        @DisplayName("PUT /rag/recycle-bin/{kbId}/restore：恢复知识库 → 200")
+        void shouldRestoreKb() throws Exception {
+            doNothing().when(ragService).restoreKnowledgeBase(TEST_EMAIL, 1L);
+
+            mockMvc.perform(put("/rag/recycle-bin/1/restore")
+                            .requestAttr("userEmail", TEST_EMAIL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.msg").value("知识库已恢复"));
+        }
+
+        @Test
+        @DisplayName("DELETE /rag/recycle-bin/{kbId}：永久删除知识库 → 200")
+        void shouldPermanentlyDeleteKb() throws Exception {
+            doNothing().when(ragService).permanentlyDeleteKnowledgeBase(TEST_EMAIL, 1L);
+
+            mockMvc.perform(delete("/rag/recycle-bin/1")
+                            .requestAttr("userEmail", TEST_EMAIL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.msg").value("已永久删除知识库"));
+        }
+
+        // ==================== 文档级别（按 KB）====================
+
+        @Test
+        @DisplayName("GET /rag/knowledge-bases/{kbId}/recycle-bin：获取文档回收站列表 → 200")
+        void shouldListDeletedDocs() throws Exception {
+            List<Map<String, Object>> items = new ArrayList<>();
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", 1L);
+            item.put("filename", "deleted.pdf");
+            item.put("fileType", "pdf");
+            items.add(item);
+            when(ragService.listDeletedDocuments(TEST_EMAIL, 1L)).thenReturn(items);
+
+            mockMvc.perform(get("/rag/knowledge-bases/1/recycle-bin")
+                            .requestAttr("userEmail", TEST_EMAIL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.data[0].filename").value("deleted.pdf"));
+        }
+
+        @Test
+        @DisplayName("PUT /rag/knowledge-bases/{kbId}/recycle-bin/{docId}/restore：恢复文档 → 200")
+        void shouldRestoreDoc() throws Exception {
+            doNothing().when(ragService).restoreDocument(TEST_EMAIL, 1L);
+
+            mockMvc.perform(put("/rag/knowledge-bases/1/recycle-bin/1/restore")
+                            .requestAttr("userEmail", TEST_EMAIL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.msg").value("文档已恢复"));
+        }
+
+        @Test
+        @DisplayName("DELETE /rag/knowledge-bases/{kbId}/recycle-bin/{docId}：永久删除文档 → 200")
+        void shouldPermanentlyDeleteDoc() throws Exception {
+            doNothing().when(ragService).permanentlyDeleteDocument(TEST_EMAIL, 1L);
+
+            mockMvc.perform(delete("/rag/knowledge-bases/1/recycle-bin/1")
+                            .requestAttr("userEmail", TEST_EMAIL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.msg").value("已永久删除"));
+        }
+
+        @Test
+        @DisplayName("DELETE /rag/knowledge-bases/{kbId}/recycle-bin：清空文档回收站 → 200")
+        void shouldEmptyDocRecycleBin() throws Exception {
+            when(ragService.emptyDocumentRecycleBin(TEST_EMAIL, 1L)).thenReturn(3);
+
+            mockMvc.perform(delete("/rag/knowledge-bases/1/recycle-bin")
+                            .requestAttr("userEmail", TEST_EMAIL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.msg").value("已永久删除 3 个文档"));
+        }
+    }
 }

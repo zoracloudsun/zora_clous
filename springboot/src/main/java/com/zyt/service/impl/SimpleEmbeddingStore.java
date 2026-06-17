@@ -149,6 +149,28 @@ public class SimpleEmbeddingStore implements EmbeddingStore<TextSegment> {
         return dot / (Math.sqrt(normA) * Math.sqrt(normB));
     }
 
+    /**
+     * 根据文档 ID 移除所有关联的向量条目
+     * <p>
+     * 遍历存储中的所有条目，通过 {@link TextSegment} 的 metadata 中的
+     * {@code document_id} 字段匹配目标文档，移除所有匹配的条目。
+     * 用于回收站操作（永久删除时清理向量、恢复时清除残留向量）。
+     * </p>
+     *
+     * @param documentId 文档 ID，对应 metadata 中的 "document_id" 字段
+     * @return 实际移除的条目数量
+     */
+    public int removeByDocumentId(Long documentId) {
+        String target = String.valueOf(documentId);
+        int before = entries.size();
+        entries.removeIf(e -> {
+            if (e.segment == null || e.segment.metadata() == null) return false;
+            Object docId = e.segment.metadata().toMap().get("document_id");
+            return docId != null && target.equals(String.valueOf(docId));
+        });
+        return before - entries.size();
+    }
+
     /** 获取存储的条目数（用于调试和测试） */
     public int size() {
         return entries.size();

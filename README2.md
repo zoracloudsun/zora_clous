@@ -174,6 +174,13 @@ npm run dev
 | GET | `/rag/knowledge-bases/{id}/documents` | 列出文档（含处理状态和块数） | ✅ |
 | DELETE | `/rag/knowledge-bases/{id}/documents/{docId}` | 删除文档 | ✅ |
 | POST | `/rag/knowledge-bases/{id}/query` | 测试检索（返回相关块+相关度分数） | ✅ |
+| GET | `/rag/recycle-bin` | 获取知识库回收站列表 | ✅ |
+| PUT | `/rag/recycle-bin/{kbId}/restore` | 恢复知识库及文档 | ✅ |
+| DELETE | `/rag/recycle-bin/{kbId}` | 永久删除知识库（不可逆） | ✅ |
+| GET | `/rag/knowledge-bases/{kbId}/recycle-bin` | 获取文档回收站列表（按KB） | ✅ |
+| PUT | `/rag/knowledge-bases/{kbId}/recycle-bin/{docId}/restore` | 恢复文档 | ✅ |
+| DELETE | `/rag/knowledge-bases/{kbId}/recycle-bin/{docId}` | 永久删除文档（不可逆） | ✅ |
+| DELETE | `/rag/knowledge-bases/{kbId}/recycle-bin` | 清空文档回收站 | ✅ |
 
 ### 认证接口（已有）
 

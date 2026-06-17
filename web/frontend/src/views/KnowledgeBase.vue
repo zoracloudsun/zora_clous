@@ -12,6 +12,11 @@
           <el-icon><Plus /></el-icon>
           新建知识库
         </el-button>
+        <el-button @click="openKbRecycleBin" :type="kbRecycleBinCount > 0 ? 'warning' : 'default'">
+          <el-icon><Delete /></el-icon>
+          知识库回收站
+          <el-badge v-if="kbRecycleBinCount > 0" :value="kbRecycleBinCount" class="recycle-badge" />
+        </el-button>
         <el-button @click="$router.push('/home')">返回主页</el-button>
       </div>
     </div>
@@ -79,6 +84,12 @@
             <el-button size="small" @click="showQueryPanel = showQueryPanel === kb.id ? null : kb.id">
               <el-icon><Search /></el-icon>
               {{ showQueryPanel === kb.id ? '关闭检索' : '测试检索' }}
+            </el-button>
+
+            <!-- 文档回收站 -->
+            <el-button size="small" @click="openDocRecycleBin(kb.id)" style="margin-left: auto;">
+              <el-icon><Delete /></el-icon>
+              文档回收站
             </el-button>
 
             <span class="upload-tip">支持 PDF、DOCX、TXT、MD（最大 10MB）</span>
@@ -191,6 +202,68 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- ==================== 知识库回收站对话框 ==================== -->
+    <el-dialog
+      v-model="kbRecycleBinVisible"
+      title="知识库回收站"
+      width="70%"
+      :close-on-click-modal="false"
+      @closed="loadKnowledgeBases"
+    >
+      <el-table :data="kbRecycleBinItems" size="small" v-loading="kbRecycleBinLoading" style="width: 100%;">
+        <el-table-column prop="name" label="知识库名称" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="description" label="描述" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="documentCount" label="已删除文档数" width="120" align="center" />
+        <el-table-column label="删除时间" width="170" align="center">
+          <template #default="{ row }">{{ formatTime(row.deletedAt) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="150" align="center">
+          <template #default="{ row }">
+            <el-button size="small" type="primary" text @click="handleRestoreKb(row.id)">恢复</el-button>
+            <el-button size="small" type="danger" text @click="handlePermanentDeleteKb(row.id)">永久删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-empty v-if="!kbRecycleBinLoading && kbRecycleBinItems.length === 0" description="知识库回收站为空" :image-size="80" />
+    </el-dialog>
+
+    <!-- ==================== 文档回收站对话框（按知识库）==================== -->
+    <el-dialog
+      v-model="docRecycleBinVisible"
+      title="文档回收站"
+      width="90%"
+      :close-on-click-modal="false"
+      @closed="closeDocRecycleBin"
+    >
+      <el-table :data="docRecycleBinItems" size="small" v-loading="docRecycleBinLoading" style="width: 100%;">
+        <el-table-column prop="filename" label="文件名" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="fileType" label="类型" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag size="small" type="info">{{ row.fileType?.toUpperCase() }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="fileSize" label="大小" width="100" align="center">
+          <template #default="{ row }">{{ formatFileSize(row.fileSize) }}</template>
+        </el-table-column>
+        <el-table-column label="删除时间" width="170" align="center">
+          <template #default="{ row }">{{ formatTime(row.deletedAt) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="150" align="center">
+          <template #default="{ row }">
+            <el-button size="small" type="primary" text @click="handleRestoreDoc(docRecycleBinKbId, row.id)">恢复</el-button>
+            <el-button size="small" type="danger" text @click="handlePermanentDeleteDoc(docRecycleBinKbId, row.id)">永久删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="recycle-bin-footer" v-if="docRecycleBinItems.length > 0">
+        <el-button type="danger" size="small" @click="handleEmptyDocRecycleBin(docRecycleBinKbId)">清空回收站</el-button>
+      </div>
+
+      <el-empty v-if="!docRecycleBinLoading && docRecycleBinItems.length === 0" description="回收站为空" :image-size="80" />
+    </el-dialog>
   </div>
 </template>
 
@@ -200,12 +273,14 @@ import {
   Collection, Plus, Folder, ArrowDown, ArrowUp,
   Upload, Edit, Delete, Search,
 } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   createKnowledgeBase, listKnowledgeBases, getKnowledgeBase,
   updateKnowledgeBase, deleteKnowledgeBase,
   uploadDocument, listDocuments, deleteDocument,
   queryKnowledgeBase,
+  listDeletedKnowledgeBases, restoreKnowledgeBase, permanentlyDeleteKnowledgeBase,
+  listDeletedDocuments, restoreDocument, permanentlyDeleteDocument, emptyDocumentRecycleBin,
 } from '@/api/rag'
 
 // ==================== 数据状态 ====================
@@ -228,12 +303,26 @@ const editingKbId = ref(null)
 const submitting = ref(false)
 const form = ref({ name: '', description: '' })
 
+// 知识库回收站（全局）
+const kbRecycleBinVisible = ref(false)
+const kbRecycleBinItems = ref([])
+const kbRecycleBinLoading = ref(false)
+const kbRecycleBinCount = ref(0)
+
+// 文档回收站（按知识库）
+const docRecycleBinVisible = ref(false)
+const docRecycleBinKbId = ref(null)
+const docRecycleBinItems = ref([])
+const docRecycleBinLoading = ref(false)
+
 // 轮询定时器
 let pollingTimer = null
 
 // ==================== 生命周期 ====================
 onMounted(async () => {
   await loadKnowledgeBases()
+  // 获取知识库回收站数量（用于徽章显示）
+  refreshKbRecycleBinCount()
   // 每 5 秒轮询：刷新有 PENDING/PROCESSING 状态文档的知识库
   pollingTimer = setInterval(() => refreshProcessingDocs(), 5000)
 })
@@ -371,6 +460,149 @@ async function refreshProcessingDocs() {
   if (hasProcessing) {
     await loadDocuments(kbId)
     await loadKnowledgeBases()
+  }
+}
+
+// ==================== 知识库回收站操作 ====================
+
+/** 打开知识库回收站对话框 */
+async function openKbRecycleBin() {
+  kbRecycleBinVisible.value = true
+  await loadKbRecycleBin()
+}
+
+/** 加载已删除的知识库列表 */
+async function loadKbRecycleBin() {
+  kbRecycleBinLoading.value = true
+  try {
+    const res = await listDeletedKnowledgeBases()
+    kbRecycleBinItems.value = res.data || []
+    kbRecycleBinCount.value = kbRecycleBinItems.value.length
+  } catch {} finally {
+    kbRecycleBinLoading.value = false
+  }
+}
+
+/** 静默刷新知识库回收站数量（用于徽章显示） */
+async function refreshKbRecycleBinCount() {
+  try {
+    const res = await listDeletedKnowledgeBases()
+    kbRecycleBinCount.value = (res.data || []).length
+  } catch {}
+}
+
+/** 恢复知识库及其所有文档 */
+async function handleRestoreKb(kbId) {
+  try {
+    await restoreKnowledgeBase(kbId)
+    ElMessage.success('知识库已恢复')
+    await loadKbRecycleBin()
+    await loadKnowledgeBases()
+  } catch {}
+}
+
+/** 永久删除知识库 */
+async function handlePermanentDeleteKb(kbId) {
+  try {
+    await ElMessageBox.confirm('此操作将永久删除该知识库及其所有文档和数据，不可恢复。确定继续？', '警告', {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await permanentlyDeleteKnowledgeBase(kbId)
+    ElMessage.success('已永久删除知识库')
+    await loadKbRecycleBin()
+    await loadKnowledgeBases()
+  } catch {
+    // 用户取消或出错
+  }
+}
+
+// ==================== 文档回收站操作（按知识库）====================
+
+/** 打开指定知识库的文档回收站 */
+async function openDocRecycleBin(kbId) {
+  docRecycleBinKbId.value = kbId
+  docRecycleBinVisible.value = true
+  await loadDocRecycleBin(kbId)
+}
+
+/** 加载指定知识库的已删除文档列表 */
+async function loadDocRecycleBin(kbId) {
+  docRecycleBinLoading.value = true
+  try {
+    const res = await listDeletedDocuments(kbId)
+    docRecycleBinItems.value = res.data || []
+  } catch {} finally {
+    docRecycleBinLoading.value = false
+  }
+}
+
+/** 恢复文档 */
+async function handleRestoreDoc(kbId, docId) {
+  try {
+    await restoreDocument(kbId, docId)
+    ElMessage.success('文档已恢复')
+    await loadDocRecycleBin(kbId)
+    await loadKnowledgeBases()
+    // 如果当前展开了该知识库，刷新其文档列表
+    if (expandedKbId.value === kbId) {
+      await loadDocuments(kbId)
+    }
+  } catch {}
+}
+
+/** 永久删除文档 */
+async function handlePermanentDeleteDoc(kbId, docId) {
+  try {
+    await ElMessageBox.confirm('此操作将永久删除文档及其所有数据，不可恢复。确定继续？', '警告', {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await permanentlyDeleteDocument(kbId, docId)
+    ElMessage.success('已永久删除')
+    await loadDocRecycleBin(kbId)
+  } catch {
+    // 用户取消或出错
+  }
+}
+
+/** 清空指定知识库的文档回收站 */
+async function handleEmptyDocRecycleBin(kbId) {
+  if (docRecycleBinItems.value.length === 0) {
+    ElMessage.info('回收站已为空')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确定要清空回收站吗？将永久删除 ${docRecycleBinItems.value.length} 个文档，此操作不可逆。`,
+      '清空回收站',
+      {
+        confirmButtonText: '确定清空',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    const res = await emptyDocumentRecycleBin(kbId)
+    ElMessage.success(res.msg || '回收站已清空')
+    await loadDocRecycleBin(kbId)
+    await loadKnowledgeBases()
+    if (expandedKbId.value === kbId) {
+      await loadDocuments(kbId)
+    }
+  } catch {
+    // 用户取消或出错
+  }
+}
+
+/** 关闭文档回收站时刷新 */
+function closeDocRecycleBin() {
+  if (docRecycleBinKbId.value) {
+    loadKnowledgeBases()
+    if (expandedKbId.value === docRecycleBinKbId.value) {
+      loadDocuments(docRecycleBinKbId.value)
+    }
   }
 }
 
@@ -539,4 +771,11 @@ function statusText(status) {
 
 /* 空/加载 */
 .kb-empty, .kb-loading { margin-top: 60px; }
+
+/* 回收站 */
+.recycle-badge { margin-left: 4px; }
+.recycle-bin-footer {
+  margin-top: 16px;
+  text-align: right;
+}
 </style>

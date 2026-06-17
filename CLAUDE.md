@@ -251,6 +251,13 @@ Migration: `springboot/src/main/resources/db/migration/V3__rag_tables.sql`
 | DELETE | `/rag/knowledge-bases/{id}/documents/{docId}` | Delete document |
 | POST | `/rag/knowledge-bases/{id}/query` | Test retrieval |
 | POST | `/ai/chat/rag-stream` | SSE RAG-enhanced streaming chat |
+| GET | `/rag/recycle-bin` | List deleted knowledge bases |
+| PUT | `/rag/recycle-bin/{kbId}/restore` | Restore KB + all docs |
+| DELETE | `/rag/recycle-bin/{kbId}` | Permanently delete KB |
+| GET | `/rag/knowledge-bases/{kbId}/recycle-bin` | List deleted docs (per KB) |
+| PUT | `/rag/knowledge-bases/{kbId}/recycle-bin/{docId}/restore` | Restore doc |
+| DELETE | `/rag/knowledge-bases/{kbId}/recycle-bin/{docId}` | Permanently delete doc |
+| DELETE | `/rag/knowledge-bases/{kbId}/recycle-bin` | Empty doc recycle bin |
 
 All `/rag/**` endpoints require login. No changes needed to `WebConfig.excludePathPatterns`.
 

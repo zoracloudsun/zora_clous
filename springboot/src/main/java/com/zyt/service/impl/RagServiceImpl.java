@@ -2,6 +2,7 @@ package com.zyt.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.zyt.entity.*;
 import com.zyt.exception.BadRequestException;
 import com.zyt.exception.ForbiddenException;
@@ -10,6 +11,7 @@ import com.zyt.mapper.*;
 import com.zyt.service.RagProcessingService;
 import com.zyt.service.RagService;
 import com.zyt.utils.FileTypeUtil;
+import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -402,6 +404,359 @@ public class RagServiceImpl implements RagService {
             log.info("定期清理：物理删除了 {} 个超过 30 天的软删除知识库", totalDeleted);
         }
         return totalDeleted;
+    }
+
+    // ==================== 回收站（知识库级别）====================
+
+    @Override
+    public List<Map<String, Object>> listDeletedKnowledgeBases(String email) {
+        User user = findUserByEmail(email);
+
+        // 查询当前用户所有已软删除的知识库
+        LambdaQueryWrapper<KnowledgeBase> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(KnowledgeBase::getUserId, user.getId())
+                .isNotNull(KnowledgeBase::getDeletedAt)
+                .orderByDesc(KnowledgeBase::getDeletedAt);
+        List<KnowledgeBase> deletedKbs = knowledgeBaseMapper.selectList(wrapper);
+
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (KnowledgeBase kb : deletedKbs) {
+            // 统计该知识库下已软删除的文档数量
+            LambdaQueryWrapper<KbDocument> docWrapper = new LambdaQueryWrapper<>();
+            docWrapper.eq(KbDocument::getKbId, kb.getId())
+                    .isNotNull(KbDocument::getDeletedAt);
+            long docCount = documentMapper.selectCount(docWrapper);
+
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", kb.getId());
+            item.put("name", kb.getName());
+            item.put("description", kb.getDescription());
+            item.put("documentCount", docCount);
+            item.put("deletedAt", kb.getDeletedAt());
+            item.put("createdAt", kb.getCreatedAt());
+            results.add(item);
+        }
+
+        return results;
+    }
+
+    @Override
+    public void restoreKnowledgeBase(String email, Long kbId) {
+        // 1. 查找知识库并验证已软删除
+        KnowledgeBase kb = knowledgeBaseMapper.selectById(kbId);
+        if (kb == null) {
+            throw new NotFoundException("知识库不存在");
+        }
+        if (kb.getDeletedAt() == null) {
+            throw new BadRequestException("知识库未被删除，无需恢复");
+        }
+
+        // 2. 验证所有权
+        User user = findUserByEmail(email);
+        if (!kb.getUserId().equals(user.getId())) {
+            throw new ForbiddenException("无权恢复此知识库");
+        }
+
+        // 3. 恢复知识库本身（使用 UpdateWrapper 显式设置 null，避免 MyBatis-Plus updateById 忽略 null 字段）
+        UpdateWrapper<KnowledgeBase> kbUpdate = new UpdateWrapper<>();
+        kbUpdate.eq("id", kbId).set("deleted_at", null);
+        knowledgeBaseMapper.update(null, kbUpdate);
+        // 同步 Java 对象状态，防止后续 updateById 把旧值写回 DB
+        kb.setDeletedAt(null);
+
+        // 4. 恢复该知识库下所有已软删除的文档，并重新嵌入向量
+        LambdaQueryWrapper<KbDocument> docWrapper = new LambdaQueryWrapper<>();
+        docWrapper.eq(KbDocument::getKbId, kbId)
+                .isNotNull(KbDocument::getDeletedAt);
+        List<KbDocument> deletedDocs = documentMapper.selectList(docWrapper);
+
+        int totalEmbedded = 0;
+        for (KbDocument doc : deletedDocs) {
+            // 清除残留向量
+            embeddingStore.removeByDocumentId(doc.getId());
+            // 恢复文档（使用 UpdateWrapper 显式设置 null）
+            UpdateWrapper<KbDocument> restoreUpdate = new UpdateWrapper<>();
+            restoreUpdate.eq("id", doc.getId()).set("deleted_at", null);
+            documentMapper.update(null, restoreUpdate);
+            doc.setDeletedAt(null);  // 同步 Java 对象
+
+            // 重新嵌入该文档的文本块
+            LambdaQueryWrapper<KbChunk> chunkWrapper = new LambdaQueryWrapper<>();
+            chunkWrapper.eq(KbChunk::getDocumentId, doc.getId())
+                    .orderByAsc(KbChunk::getChunkIndex);
+            List<KbChunk> chunks = chunkMapper.selectList(chunkWrapper);
+
+            for (KbChunk chunk : chunks) {
+                try {
+                    Embedding embedding = embeddingModel.embed(chunk.getContent()).content();
+                    Metadata metadata = new Metadata()
+                            .put("document_id", String.valueOf(doc.getId()))
+                            .put("kb_id", String.valueOf(kbId))
+                            .put("filename", doc.getFilename())
+                            .put("chunk_index", String.valueOf(chunk.getChunkIndex()));
+                    TextSegment segment = TextSegment.from(chunk.getContent(), metadata);
+                    embeddingStore.add(embedding, segment);
+                    totalEmbedded++;
+                } catch (Exception e) {
+                    log.error("恢复知识库时嵌入文本块失败: doc={}, chunk={}, error={}",
+                            doc.getFilename(), chunk.getChunkIndex(), e.getMessage());
+                }
+            }
+        }
+
+        // 5. 刷新 KB 更新时间
+        kb.setUpdatedAt(LocalDateTime.now());
+        knowledgeBaseMapper.updateById(kb);
+
+        log.info("用户 {} 恢复知识库: {} (id={}), 恢复 {} 个文档, 重新嵌入 {} 个文本块",
+                email, kb.getName(), kbId, deletedDocs.size(), totalEmbedded);
+    }
+
+    @Override
+    public void permanentlyDeleteKnowledgeBase(String email, Long kbId) {
+        // 1. 查找知识库并验证已软删除
+        KnowledgeBase kb = knowledgeBaseMapper.selectById(kbId);
+        if (kb == null) {
+            throw new NotFoundException("知识库不存在");
+        }
+        if (kb.getDeletedAt() == null) {
+            throw new BadRequestException("只能永久删除回收站中的知识库");
+        }
+
+        // 2. 验证所有权
+        User user = findUserByEmail(email);
+        if (!kb.getUserId().equals(user.getId())) {
+            throw new ForbiddenException("无权删除此知识库");
+        }
+
+        String kbName = kb.getName();
+
+        // 3. 加载该 KB 下所有文档（忽略 deleted_at 状态，全部清理）
+        LambdaQueryWrapper<KbDocument> docWrapper = new LambdaQueryWrapper<>();
+        docWrapper.eq(KbDocument::getKbId, kbId);
+        List<KbDocument> docs = documentMapper.selectList(docWrapper);
+
+        // 4. 逐个清理文档（文件 + 向量 + chunks）
+        for (KbDocument doc : docs) {
+            // 删除磁盘文件
+            try {
+                Files.deleteIfExists(Path.of(doc.getFilePath()));
+            } catch (IOException e) {
+                log.warn("删除磁盘文件失败: {}", doc.getFilePath());
+            }
+            // 移除向量
+            embeddingStore.removeByDocumentId(doc.getId());
+            // 物理删除 chunks
+            LambdaQueryWrapper<KbChunk> chunkWrapper = new LambdaQueryWrapper<>();
+            chunkWrapper.eq(KbChunk::getDocumentId, doc.getId());
+            chunkMapper.delete(chunkWrapper);
+        }
+
+        // 5. 物理删除所有文档记录
+        if (!docs.isEmpty()) {
+            documentMapper.delete(docWrapper);
+        }
+
+        // 6. 物理删除知识库记录
+        knowledgeBaseMapper.deleteById(kbId);
+
+        log.info("用户 {} 永久删除知识库: {} (id={}), 共删除 {} 个文档",
+                email, kbName, kbId, docs.size());
+    }
+
+    // ==================== 回收站（文档级别，按知识库）====================
+
+    @Override
+    public List<Map<String, Object>> listDeletedDocuments(String email, Long kbId) {
+        // 验证知识库所有权（包括已软删除的 KB）
+        KnowledgeBase kb = knowledgeBaseMapper.selectById(kbId);
+        if (kb != null) {
+            User user = findUserByEmail(email);
+            if (!kb.getUserId().equals(user.getId())) {
+                throw new ForbiddenException("无权访问此知识库");
+            }
+        }
+
+        // 查询该知识库下所有已软删除的文档
+        LambdaQueryWrapper<KbDocument> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(KbDocument::getKbId, kbId)
+                .isNotNull(KbDocument::getDeletedAt)
+                .orderByDesc(KbDocument::getDeletedAt);
+        List<KbDocument> deletedDocs = documentMapper.selectList(wrapper);
+
+        return deletedDocs.stream().map(doc -> {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", doc.getId());
+            item.put("kbId", doc.getKbId());
+            item.put("filename", doc.getFilename());
+            item.put("fileType", doc.getFileType());
+            item.put("fileSize", doc.getFileSize());
+            item.put("status", doc.getStatus());
+            item.put("chunkCount", doc.getChunkCount());
+            item.put("deletedAt", doc.getDeletedAt());
+            item.put("createdAt", doc.getCreatedAt());
+            return item;
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    public void restoreDocument(String email, Long docId) {
+        // 1. 查找文档并验证已软删除
+        KbDocument doc = documentMapper.selectById(docId);
+        if (doc == null) {
+            throw new NotFoundException("文档不存在");
+        }
+        if (doc.getDeletedAt() == null) {
+            throw new BadRequestException("文档未被删除，无需恢复");
+        }
+
+        // 2. 加载知识库并验证所有权
+        KnowledgeBase kb = knowledgeBaseMapper.selectById(doc.getKbId());
+        if (kb != null) {
+            User user = findUserByEmail(email);
+            if (!kb.getUserId().equals(user.getId())) {
+                throw new ForbiddenException("无权恢复此文档");
+            }
+
+            // 3. 若知识库也被软删除，自动恢复知识库（使用 UpdateWrapper 防止 MyBatis-Plus 忽略 null）
+            if (kb.getDeletedAt() != null) {
+                UpdateWrapper<KnowledgeBase> autoKbUpdate = new UpdateWrapper<>();
+                autoKbUpdate.eq("id", kb.getId()).set("deleted_at", null);
+                knowledgeBaseMapper.update(null, autoKbUpdate);
+                kb.setDeletedAt(null);  // 同步 Java 对象状态
+                log.info("自动恢复知识库: {} (id={})", kb.getName(), kb.getId());
+            }
+        }
+
+        // 4. 清除可能残留的向量
+        int removed = embeddingStore.removeByDocumentId(docId);
+        if (removed > 0) {
+            log.debug("恢复文档前清除残留向量: docId={}, count={}", docId, removed);
+        }
+
+        // 5. 恢复文档（使用 UpdateWrapper 显式设置 null，避免 MyBatis-Plus 忽略 null 字段）
+        UpdateWrapper<KbDocument> restoreUpdate = new UpdateWrapper<>();
+        restoreUpdate.eq("id", docId).set("deleted_at", null);
+        documentMapper.update(null, restoreUpdate);
+        doc.setDeletedAt(null);  // 同步 Java 对象
+
+        // 6. 重新嵌入文本块到向量库
+        LambdaQueryWrapper<KbChunk> chunkWrapper = new LambdaQueryWrapper<>();
+        chunkWrapper.eq(KbChunk::getDocumentId, docId)
+                .orderByAsc(KbChunk::getChunkIndex);
+        List<KbChunk> chunks = chunkMapper.selectList(chunkWrapper);
+
+        int embeddedCount = 0;
+        for (KbChunk chunk : chunks) {
+            try {
+                Embedding embedding = embeddingModel.embed(chunk.getContent()).content();
+                Metadata metadata = new Metadata()
+                        .put("document_id", String.valueOf(doc.getId()))
+                        .put("kb_id", String.valueOf(doc.getKbId()))
+                        .put("filename", doc.getFilename())
+                        .put("chunk_index", String.valueOf(chunk.getChunkIndex()));
+                TextSegment segment = TextSegment.from(chunk.getContent(), metadata);
+                embeddingStore.add(embedding, segment);
+                embeddedCount++;
+            } catch (Exception e) {
+                log.error("恢复文档时嵌入文本块失败: doc={}, chunk={}, error={}",
+                        doc.getFilename(), chunk.getChunkIndex(), e.getMessage());
+            }
+        }
+
+        // 7. 更新 KB 更新时间
+        if (kb != null) {
+            kb.setUpdatedAt(LocalDateTime.now());
+            knowledgeBaseMapper.updateById(kb);
+        }
+
+        log.info("用户 {} 恢复文档: {} (id={}), 重新嵌入 {} 个文本块",
+                email, doc.getFilename(), docId, embeddedCount);
+    }
+
+    @Override
+    public void permanentlyDeleteDocument(String email, Long docId) {
+        // 1. 查找文档并验证已软删除
+        KbDocument doc = documentMapper.selectById(docId);
+        if (doc == null) {
+            throw new NotFoundException("文档不存在");
+        }
+        if (doc.getDeletedAt() == null) {
+            throw new BadRequestException("只能永久删除回收站中的文档");
+        }
+
+        // 2. 验证所有权
+        KnowledgeBase kb = knowledgeBaseMapper.selectById(doc.getKbId());
+        if (kb != null) {
+            User user = findUserByEmail(email);
+            if (!kb.getUserId().equals(user.getId())) {
+                throw new ForbiddenException("无权删除此文档");
+            }
+        }
+
+        String filename = doc.getFilename();
+
+        // 3. 删除磁盘文件
+        try {
+            Path filePath = Path.of(doc.getFilePath());
+            boolean deleted = Files.deleteIfExists(filePath);
+            if (deleted) {
+                log.debug("已删除磁盘文件: {}", filePath);
+            } else {
+                log.warn("磁盘文件不存在: {}", filePath);
+            }
+        } catch (IOException e) {
+            log.error("删除磁盘文件失败: doc={}, path={}, error={}",
+                    filename, doc.getFilePath(), e.getMessage());
+        }
+
+        // 4. 从向量库移除向量
+        int removed = embeddingStore.removeByDocumentId(docId);
+        log.debug("从向量库移除 {} 个向量: docId={}", removed, docId);
+
+        // 5. 物理删除文本块
+        LambdaQueryWrapper<KbChunk> chunkWrapper = new LambdaQueryWrapper<>();
+        chunkWrapper.eq(KbChunk::getDocumentId, docId);
+        chunkMapper.delete(chunkWrapper);
+
+        // 6. 物理删除文档记录
+        documentMapper.deleteById(docId);
+
+        log.info("用户 {} 永久删除文档: {} (id={}), 从向量库移除 {} 个向量",
+                email, filename, docId, removed);
+    }
+
+    @Override
+    public int emptyDocumentRecycleBin(String email, Long kbId) {
+        // 验证所有权
+        KnowledgeBase kb = knowledgeBaseMapper.selectById(kbId);
+        if (kb != null) {
+            User user = findUserByEmail(email);
+            if (!kb.getUserId().equals(user.getId())) {
+                throw new ForbiddenException("无权操作此知识库");
+            }
+        }
+
+        List<Map<String, Object>> items = listDeletedDocuments(email, kbId);
+
+        if (items.isEmpty()) {
+            return 0;
+        }
+
+        int successCount = 0;
+        for (Map<String, Object> item : items) {
+            Long docId = ((Number) item.get("id")).longValue();
+            try {
+                permanentlyDeleteDocument(email, docId);
+                successCount++;
+            } catch (Exception e) {
+                log.error("清空文档回收站时失败: kbId={}, docId={}, error={}", kbId, docId, e.getMessage());
+            }
+        }
+
+        log.info("用户 {} 清空知识库 id={} 的文档回收站：成功 {} 个，失败 {} 个",
+                email, kbId, successCount, items.size() - successCount);
+        return successCount;
     }
 
     // ==================== 私有辅助方法 ====================

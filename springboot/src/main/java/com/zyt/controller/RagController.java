@@ -162,4 +162,97 @@ public class RagController {
         List<Map<String, Object>> results = ragService.searchChunks(id, query, maxResults, minScore);
         return ResponseUtil.success(results);
     }
+
+    // ==================== 回收站（知识库级别）====================
+
+    @Operation(summary = "获取知识库回收站列表", description = "获取当前用户所有已软删除的知识库，含各库内的已删除文档数量。" +
+            "按删除时间倒序排列。")
+    @GetMapping("/recycle-bin")
+    public ResponseUtil listDeletedKbs(
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        List<Map<String, Object>> result = ragService.listDeletedKnowledgeBases(email);
+        return ResponseUtil.success(result);
+    }
+
+    @Operation(summary = "恢复知识库", description = "从回收站恢复指定知识库及其所有文档。" +
+            "恢复后所有文档的文本块会重新嵌入向量库。")
+    @PutMapping("/recycle-bin/{kbId}/restore")
+    public ResponseUtil restoreKb(
+            @Parameter(description = "知识库 ID", required = true, example = "1")
+            @PathVariable Long kbId,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        ragService.restoreKnowledgeBase(email, kbId);
+        return ResponseUtil.success("知识库已恢复", null);
+    }
+
+    @Operation(summary = "永久删除知识库", description = "从回收站永久删除指定知识库及旗下所有文档（含文件、文本块和向量）。此操作不可逆！")
+    @DeleteMapping("/recycle-bin/{kbId}")
+    public ResponseUtil permanentlyDeleteKb(
+            @Parameter(description = "知识库 ID", required = true, example = "1")
+            @PathVariable Long kbId,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        ragService.permanentlyDeleteKnowledgeBase(email, kbId);
+        return ResponseUtil.success("已永久删除知识库", null);
+    }
+
+    // ==================== 回收站（文档级别，按知识库）====================
+
+    @Operation(summary = "获取文档回收站列表", description = "获取指定知识库中所有已软删除的文档，按删除时间倒序排列。")
+    @GetMapping("/knowledge-bases/{kbId}/recycle-bin")
+    public ResponseUtil listDeletedDocs(
+            @Parameter(description = "知识库 ID", required = true, example = "1")
+            @PathVariable Long kbId,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        List<Map<String, Object>> result = ragService.listDeletedDocuments(email, kbId);
+        return ResponseUtil.success(result);
+    }
+
+    @Operation(summary = "恢复文档", description = "从回收站恢复指定文档。若所属知识库也处于删除状态则一并恢复。" +
+            "恢复后文档的文本块会重新嵌入向量库。")
+    @PutMapping("/knowledge-bases/{kbId}/recycle-bin/{docId}/restore")
+    public ResponseUtil restoreDoc(
+            @Parameter(description = "知识库 ID", required = true, example = "1")
+            @PathVariable Long kbId,
+            @Parameter(description = "文档 ID", required = true, example = "1")
+            @PathVariable Long docId,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        ragService.restoreDocument(email, docId);
+        return ResponseUtil.success("文档已恢复", null);
+    }
+
+    @Operation(summary = "永久删除文档", description = "从回收站永久删除指定文档，包括磁盘文件、文本块和向量数据。此操作不可逆！")
+    @DeleteMapping("/knowledge-bases/{kbId}/recycle-bin/{docId}")
+    public ResponseUtil permanentlyDeleteDoc(
+            @Parameter(description = "知识库 ID", required = true, example = "1")
+            @PathVariable Long kbId,
+            @Parameter(description = "文档 ID", required = true, example = "1")
+            @PathVariable Long docId,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        ragService.permanentlyDeleteDocument(email, docId);
+        return ResponseUtil.success("已永久删除", null);
+    }
+
+    @Operation(summary = "清空文档回收站", description = "永久删除指定知识库回收站中的所有文档（含文件、文本块和向量）。此操作不可逆！")
+    @DeleteMapping("/knowledge-bases/{kbId}/recycle-bin")
+    public ResponseUtil emptyDocRecycleBin(
+            @Parameter(description = "知识库 ID", required = true, example = "1")
+            @PathVariable Long kbId,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true)
+            HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        int count = ragService.emptyDocumentRecycleBin(email, kbId);
+        return ResponseUtil.success("已永久删除 " + count + " 个文档", null);
+    }
 }
