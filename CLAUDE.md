@@ -132,8 +132,9 @@ redis-cli
 ```
 springboot/src/main/java/com/zora/
 ├── AppStart.java                          # 启动类
-├── config/                                # 配置类（12 个）
-│   ├── AiConfig.java                      #   LangChain4j 流式模型 + Embedding
+├── config/                                # 配置类（13 个）
+│   ├── AiConfig.java                      #   LangChain4j 流式 + 非流式模型（Phase 3 新增 ChatLanguageModel）
+│   ├── AgentConfig.java                   #   Agent 智能体配置（Phase 3，@ConfigurationProperties）
 │   ├── RagConfig.java                     #   EmbeddingModel + SimpleEmbeddingStore Bean
 │   ├── Knife4jConfig.java                 #   OpenAPI 3 文档 + SecurityRequirement 注入
 │   ├── SecurityConfig.java                #   Spring Security（仅 BCrypt）
@@ -145,9 +146,15 @@ springboot/src/main/java/com/zora/
 │   ├── WechatConfig.java                  #   微信 OAuth 配置
 │   ├── CleanupTask.java                   #   定时清理任务
 │   └── SwaggerCompatController.java       #   Swagger JSON 兼容端点
-├── controller/                            # REST 控制器（3 个，32+ 端点）
+├── agent/                                 # Agent 智能体（Phase 3，4 个子包）
+│   ├── AgentService.java                  #   Agent 服务接口
+│   ├── impl/AgentServiceImpl.java         #   核心实现：两阶段流式 + ReAct 循环
+│   ├── tool/Tool.java                     #   工具标记接口（Phase 3.2 实现具体工具）
+│   └── event/AgentEvent.java              #   结构化 SSE 事件 record
+├── controller/                            # REST 控制器（4 个，33+ 端点）
 │   ├── UserController.java                #   用户认证（16 端点）
 │   ├── AiChatController.java              #   AI 对话 + SSE + RAG 对话
+│   ├── AgentController.java               #   Agent 智能体 SSE 流式对话（Phase 3）
 │   └── RagController.java                 #   RAG 知识库 CRUD（16 端点）
 ├── service/                               # 业务逻辑层
 │   ├── UserService.java / impl/UserServiceImpl.java           # 用户认证
@@ -155,9 +162,10 @@ springboot/src/main/java/com/zora/
 │   ├── RagService.java / impl/RagServiceImpl.java             # 知识库 CRUD + 回收站
 │   ├── RagProcessingService.java / impl/RagProcessingServiceImpl.java  # 文档处理 + 启动重建
 │   └── impl/SimpleEmbeddingStore.java     #   余弦相似度内存向量存储
-├── entity/                                # 实体类（6 个）
+├── entity/                                # 实体类（7 个）
 │   ├── User.java, ChatConversation.java, ChatMessage.java
-│   └── KnowledgeBase.java, KbDocument.java, KbChunk.java
+│   ├── KnowledgeBase.java, KbDocument.java, KbChunk.java
+│   └── AgentStep.java                     #   瞬态 POJO（Phase 3，记录推理步骤）
 ├── mapper/                                # MyBatis-Plus Mapper（6 个，BaseMapper 免写 SQL）
 ├── exception/                             # 异常体系（7 个）
 │   ├── BusinessException.java             #   基类
@@ -434,6 +442,112 @@ On application start, `RagProcessingServiceImpl.@PostConstruct rebuildEmbeddingS
 4. Stores embeddings in `SimpleEmbeddingStore`
 
 This ensures vector data survives restarts despite in-memory storage.
+
+---
+
+## AI Agent 智能体 (Phase 3)
+
+### Architecture
+
+Agent 在 Phase 1 流式对话的基础上，增加了工具调用（Tool Calling）能力。
+采用"两阶段流式"架构：先用非流式模型完成推理循环，再流式输出最终回答。
+
+```
+用户消息 → AgentController → AgentServiceImpl
+                                  ├── 非流式推理循环 (ChatLanguageModel)
+                                  │   ├── thinking → SSE 事件
+                                  │   ├── tool_call → 执行工具 → SSE 事件
+                                  │   └── tool_result → SSE 事件
+                                  └── 流式最终回答 (StreamingChatModel)
+                                      └── token/done → SSE 事件
+```
+
+**Key Design Decisions**:
+- **两阶段流式**：非流式 `ChatLanguageModel` 用于工具调用推理（DeepSeek 不支持流式 function calling），流式 `StreamingChatModel` 用于最终回答输出
+- **手动 Agent 循环**：不使用 LangChain4j `AiServices`（因为无法拦截中间事件），采用 `ChatLanguageModel.generate(messages, toolSpecs)` 手动实现 ReAct 循环
+- **结构化 SSE 协议**：`AgentEvent` 类型系统替代 Phase 1 的纯 token JSON 协议，支持 thinking / tool_call / tool_result / token / done / error 六种事件
+- **工具标记接口**：所有工具实现 `Tool` 接口，Spring 自动注入 `List<Tool>`，通过 `AgentConfig` 配置开关过滤
+
+### SSE 事件协议
+
+| 事件类型 | 字段 | 用途 |
+|---------|------|------|
+| `thinking` | `content` | Agent 思考过程描述 |
+| `tool_call` | `tool`, `args` | 工具调用请求 |
+| `tool_result` | `tool`, `content` | 工具执行结果 |
+| `token` | `content` | 最终回答文本片段 |
+| `done` | `conversationId` | 对话完成 |
+| `error` | `message` | 错误信息（已脱敏） |
+
+### New API Endpoints (/agent/**)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/agent/chat/stream` | Agent SSE 流式对话（支持工具调用） |
+
+All `/agent/**` endpoints require login (same as `/ai/**` — intercepted by `LoginInterceptor`).
+
+### Key Backend Files
+
+| Layer | File |
+|-------|------|
+| Config | `config/AiConfig.java` — 新增 `OpenAiChatModel`（非流式）bean |
+| Config | `config/AgentConfig.java` — `@ConfigurationProperties(prefix="agent")` |
+| Agent Service | `agent/AgentService.java` — Agent 服务接口 |
+| Agent Impl | `agent/impl/AgentServiceImpl.java` — 核心实现：两阶段流式 + ReAct 循环 |
+| Tool SPI | `agent/tool/Tool.java` — 工具标记接口（Phase 3.2 实现具体工具） |
+| Event | `agent/event/AgentEvent.java` — 结构化 SSE 事件 record |
+| Controller | `controller/AgentController.java` — `/agent/chat/stream` SSE 端点 |
+| Entity | `entity/AgentStep.java` — 瞬态 POJO，记录推理步骤 |
+
+### Configuration
+
+```yaml
+agent:
+  tools:
+    web-search:
+      enabled: ${AGENT_TOOL_WEB_SEARCH:true}
+    math:
+      enabled: ${AGENT_TOOL_MATH:true}
+    code-execution:
+      enabled: ${AGENT_TOOL_CODE_EXEC:false}  # 默认关闭（安全考量）
+      timeout-seconds: 5
+      max-output-length: 10000
+  tavily:
+    api-key: ${TAVILY_API_KEY:}
+    base-url: https://api.tavily.com/search
+    timeout-seconds: 15
+  multi-agent:
+    enabled: ${AGENT_MULTI_AGENT:false}       # Phase 3.5
+    max-specialist-calls: 3
+  memory:
+    window-size: 20
+    summary-trigger-count: 10
+    summary-max-length: 300
+```
+
+### Security
+
+- **工具循环限制**：Agent 推理最多 5 次迭代（`MAX_AGENT_ITERATIONS`）
+- **代码执行默认关闭**：`agent.tools.code-execution.enabled=false`
+- **限流**：Redis ZSET 滑动窗口，10 次/分钟/用户（`agent_rate:` key）
+- **注入检测**：18 种中英文 Prompt Injection 模式
+
+### Phase 3 Sub-phases
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 3.1 | LangChain4j Tool Calling 基础框架 + AgentController + SSE 协议 | ✅ Done |
+| 3.2 | 内置工具：WebSearchTool, MathTool, CodeExecutionTool | ⬜ Pending |
+| 3.3 | Agent 可视化推理过程（Chat.vue 推理面板） | ⬜ Pending |
+| 3.4 | 记忆摘要 + 长期记忆（ChatMemory + ConversationSummary） | ⬜ Pending |
+| 3.5 | 多 Agent 编排（Supervisor + Specialist Agents） | ⬜ Pending |
+
+### Frontend
+
+| File | Purpose |
+|------|---------|
+| `api/agent.js` | Agent SSE 客户端，解析结构化事件并分发到回调函数 |
 
 ---
 

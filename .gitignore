@@ -16,6 +16,9 @@ springboot/src/main/resources/application.yml
 ### 本地笔记 ###
 git相关命令.md
 
+### 上传文件（运行时生成） ###
+springboot/uploads/rag/
+
 ### 依赖与构建产物 ###
 node_modules/
 dist/
@@ -23,3 +26,4 @@ dist/
 
 ### Docker 环境变量（含敏感凭据）###
 .env
+

@@ -118,6 +118,13 @@
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
+        <!-- LangChain4j 核心模块（提供 AiServices、@Tool、ChatMemory 等 Agent 能力） -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+            <version>1.15.0</version>
+        </dependency>
+
         <!-- LangChain4j OpenAI（兼容 DeepSeek，API 格式一致） -->
         <dependency>
             <groupId>dev.langchain4j</groupId>

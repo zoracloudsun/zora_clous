@@ -1,6 +1,6 @@
-# Spring Boot + Vue3 AI 智能对话与 RAG 知识库系统
+# Spring Boot + Vue3 AI 智能对话与 RAG 知识库系统 + AI Agent 智能体
 
-> 基于 LangChain4j + DeepSeek 的智能对话系统 + RAG 知识库，集成 JWT 双 Token 认证、SSE 流式传输、文档向量检索增强生成、Markdown 渲染、Docker 一键部署。
+> 基于 LangChain4j + DeepSeek 的智能对话系统 + RAG 知识库 + AI Agent 智能体，集成 JWT 双 Token 认证、SSE 流式传输、文档向量检索增强生成、工具调用推理、Markdown 渲染、Docker 一键部署。
 
 ---
 
@@ -13,13 +13,14 @@
 | 能力 | 说明 |
 |------|------|
 | 🤖 AI 智能对话 | DeepSeek-V3 大模型驱动，中英文对话、代码生成、数据分析 |
+| 🤖 AI Agent 智能体 | LangChain4j Tool Calling 框架，AI 可自主调用工具（搜索/计算/代码执行）完成复杂任务 |
 | 📡 SSE 流式传输 | 逐字输出，打字机效果，120 秒超时支持长回复 |
 | 📝 Markdown 渲染 | 完整 Markdown 支持：标题、列表、表格、引用、代码块（190+ 语言语法高亮） |
 | 🔒 XSS 安全过滤 | DOMPurify 过滤 AI 输出中的潜在恶意 HTML/JS |
 | 💬 多轮上下文 | 自动携带最近 20 条历史消息，支持连续对话 |
 | 📂 对话管理 | 新建、切换、删除对话，自动从首条回复生成标题 |
 | 🛑 中途停止 | 随时停止 AI 生成，已输出内容保留 |
-| 🔐 认证保护 | 所有 AI 接口需 JWT 登录，复用现有拦截器链 |
+| 🔐 认证保护 | 所有 AI/Agent 接口需 JWT 登录，复用现有拦截器链 |
 | 📚 RAG 知识库 | 上传 PDF/DOCX/TXT/MD → 自动解析分块 → 向量嵌入 → 检索增强生成 |
 | 🔍 向量检索 | OpenAI 兼容 Embedding API + 余弦相似度检索，内存向量库 + MySQL 持久化 |
 | 📄 文档管理 | 知识库卡片列表、文档上传、处理状态轮询、检索测试面板 |
@@ -35,9 +36,11 @@
 | 技术 | 版本 | 作用 |
 |------|------|------|
 | Spring Boot | 3.5.11 | 基础框架 |
-| LangChain4j | 1.15.0 | AI 应用框架（Java 原生，对标 Python LangChain） |
+| LangChain4j | 1.15.0 | AI 应用框架（Java 原生，对标 Python LangChain），含 Tool Calling |
 | DeepSeek Chat | V3 | 大语言模型（兼容 OpenAI API） |
 | WebFlux | — | SSE 流式响应（`Flux<String>`） |
+| Tavily Search | — | Agent 网页搜索工具（1000次/月免费额度） |
+| exp4j | 0.4.8 | Agent 安全数学表达式求值引擎 |
 | MyBatis-Plus | 3.5.12 | 对话/消息/知识库持久化 |
 | MySQL | 8.x | 存储对话、消息、知识库、文档、文本块 |
 | Redis | 7.x | Token 缓存（复用认证系统） |
@@ -83,6 +86,13 @@ AI_TIMEOUT_SECONDS=120
 AI_EMBEDDING_API_KEY=sk-your-embedding-key
 AI_EMBEDDING_BASE_URL=https://api.openai.com/v1
 AI_EMBEDDING_MODEL=text-embedding-3-small
+
+# ===== Agent 智能体（Phase 3）=====
+TAVILY_API_KEY=tvly-your-tavily-api-key
+# 工具开关（默认已启用搜索和数学，代码执行需手动开启）
+# AGENT_TOOL_WEB_SEARCH=true
+# AGENT_TOOL_MATH=true
+# AGENT_TOOL_CODE_EXEC=false
 ```
 
 > **嵌入 API 提供商推荐**：DeepSeek 暂不支持 Embedding API。推荐 [硅基流动](https://siliconflow.cn) — 国内直连、OpenAI 兼容、价格便宜。
@@ -161,6 +171,14 @@ npm run dev
 | POST | `/ai/conversations/{id}/restore` | 恢复已删除对话 | ✅ |
 | DELETE | `/ai/conversations/{id}/permanent` | 永久删除对话 | ✅ |
 | POST | `/ai/chat/rag-stream` | SSE RAG 流式对话（需传 knowledgeBaseId） | ✅ |
+
+### AI Agent 智能体
+
+| 方法 | 路径 | 说明 | 认证 |
+|------|------|------|------|
+| POST | `/agent/chat/stream` | Agent SSE 流式对话（支持工具调用） | ✅ |
+
+> Agent 端点采用**两阶段流式**架构：先用非流式模型完成"思考→工具调用→结果分析"的 ReAct 推理循环，再用流式模型输出最终回答。SSE 事件协议支持 `thinking` / `tool_call` / `tool_result` / `token` / `done` / `error` 六种结构化事件。
 
 ### RAG 知识库
 
@@ -246,6 +264,22 @@ DeepSeek API (chunked response)
                     → 用户看到逐字出现的回复
 ```
 
+### Agent 两阶段流式架构
+
+```
+用户消息 → AgentController → AgentServiceImpl
+                                ├── 阶段1：非流式推理循环 (ChatModel)
+                                │   ├── thinking 事件 → SSE
+                                │   ├── tool_call 事件 → 执行工具 → SSE
+                                │   └── tool_result 事件 → SSE
+                                ├── 阶段2：流式最终回答 (StreamingChatModel)
+                                │   ├── token 事件 → SSE
+                                │   └── done 事件 → SSE
+                                └── 保存对话记录
+```
+
+**为什么两阶段？** DeepSeek（以及大多数模型）不支持在流式模式下同时进行 function calling。Agent 需要先通过非流式 `ChatModel` 完成"思考→工具调用→结果分析"的 ReAct 循环，最后用 `StreamingChatModel` 流式输出最终回答。整个过程中通过结构化 SSE 事件实时推送推理进度，用户无需等待。
+
 ### 数据库设计
 
 ```sql
@@ -267,27 +301,37 @@ chat_message(id, conversation_id → chat_conversation.id, role, content, create
 springboot/
 ├── src/main/java/com/zora/
 │   ├── config/
-│   │   ├── AiConfig.java              # LangChain4j 流式模型配置
+│   │   ├── AiConfig.java              # LangChain4j 流式 + 非流式模型配置
+│   │   ├── AgentConfig.java           # Agent 智能体配置（工具开关/Tavily/多Agent/记忆）
 │   │   ├── RagConfig.java             # Embedding 模型 + 向量存储配置
 │   │   ├── Knife4jConfig.java         # OpenAPI 3 / Knife4j 文档配置
 │   │   ├── SwaggerCompatController.java # /swagger-resources 兼容端点
-│   │   ├── WebConfig.java             # 拦截器配置（已覆盖 /ai/** 和 /rag/**）
+│   │   ├── WebConfig.java             # 拦截器配置（已覆盖 /ai/**, /rag/**, /agent/**）
 │   │   └── SecurityConfig.java        # Spring Security（仅 BCrypt）
+│   ├── agent/                         # 🆕 Agent 智能体（Phase 3）
+│   │   ├── AgentService.java          # Agent 服务接口
+│   │   ├── impl/AgentServiceImpl.java # 核心实现：两阶段流式 + ReAct 循环（~500行）
+│   │   ├── tool/Tool.java             # 工具标记接口（所有工具实现此接口）
+│   │   └── event/AgentEvent.java      # 结构化 SSE 事件 record
 │   ├── controller/
+│   │   ├── AgentController.java       # 🆕 Agent SSE 流式对话端点（/agent/chat/stream）
 │   │   ├── AiChatController.java      # AI 对话 REST API + SSE（含 RAG 对话）
 │   │   ├── RagController.java         # RAG 知识库 REST API（16 个端点）
 │   │   └── UserController.java        # 用户认证 API
 │   ├── service/
+│   │   ├── AgentService.java          # （已在 agent/ 包中定义）
 │   │   ├── AiChatService.java         # AI 对话核心逻辑（含 RAG 流式对话）
 │   │   ├── RagService.java            # 知识库 CRUD + 检索 + 文档管理 + 两级回收站
 │   │   ├── RagProcessingService.java  # 文档处理管道 + 启动向量重建
 │   │   ├── impl/
+│   │   │   ├── AgentServiceImpl.java  # （已在 agent/impl/ 包中）
 │   │   │   ├── AiChatServiceImpl.java # AI 对话实现（流式 + RAG 上下文注入）
 │   │   │   ├── RagServiceImpl.java    # 知识库业务 + 回收站（~790 行）
 │   │   │   ├── RagProcessingServiceImpl.java # Tika 解析 + 分块 + Embedding
 │   │   │   └── SimpleEmbeddingStore.java     # 余弦相似度向量存储
 │   │   └── UserService.java
 │   ├── entity/
+│   │   ├── AgentStep.java             # 🆕 瞬态 POJO，记录 Agent 推理步骤
 │   │   ├── ChatConversation.java      # 对话会话实体
 │   │   ├── ChatMessage.java           # 对话消息实体
 │   │   ├── KnowledgeBase.java         # 知识库实体
@@ -306,7 +350,7 @@ springboot/
 │       ├── TextSplitterUtil.java      # 递归文本分割器
 │       └── ...（认证相关工具类）
 ├── src/main/resources/
-│   ├── application.yml                # 配置文件（含 rag: 配置段）
+│   ├── application.yml                # 配置文件（含 ai:, rag:, agent: 配置段）
 │   └── db/migration/
 │       ├── V2__chat_tables.sql        # AI 对话表
 │       └── V3__rag_tables.sql         # RAG 知识库/文档/块表
@@ -315,19 +359,20 @@ springboot/
 web/frontend/
 ├── src/
 │   ├── views/
-│   │   ├── Chat.vue                   # AI 对话页面（含 RAG 开关 + 知识库选择器）
+│   │   ├── Chat.vue                   # AI 对话页面（含 RAG 开关 + Agent 模式 + 知识库选择器）
 │   │   ├── KnowledgeBase.vue          # 知识库管理 + 两级回收站（~780 行）
 │   │   ├── Home.vue                   # 首页（含 AI 入口 + 知识库入口）
 │   │   ├── Login.vue                  # 登录页
 │   │   └── Register.vue               # 注册页
 │   ├── api/
 │   │   ├── ai.js                      # AI API（含 SSE 流式 + RAG 流式）
+│   │   ├── agent.js                   # 🆕 Agent SSE 客户端（结构化事件解析）
 │   │   ├── rag.js                     # RAG API（知识库 CRUD + 上传 + 检索）
 │   │   └── user.js                    # 用户 API
-│   ├── router/index.js                # 路由配置（含 /knowledge）
+│   ├── router/index.js                # 路由配置（含 /chat, /knowledge）
 │   └── utils/token.js                 # Token 管理
-├── nginx.conf                         # Nginx 配置（含 /ai/ 和 /rag/ 代理）
-└── vite.config.js                     # Vite 配置（含 /ai 和 /rag 代理）
+├── nginx.conf                         # Nginx 配置（含 /ai/, /rag/, /agent/ 代理）
+└── vite.config.js                     # Vite 配置（含 /ai, /rag, /agent 代理）
 ```
 
 ---
@@ -340,6 +385,15 @@ web/frontend/
 2. 在 `AiChatService` 中实现业务逻辑
 3. 在 `api/ai.js` 中添加前端调用函数
 4. `/ai/**` 路径自动被拦截器保护，无需额外配置
+
+### 添加新的 Agent 工具
+
+1. 创建工具类实现 `com.zora.agent.tool.Tool` 接口
+2. 在方法上使用 `@Tool` 注解描述工具功能（LangChain4j 会读取并传给 LLM）
+3. 在 `@P` 注解中描述每个参数的用途
+4. 在 `application.yml` 的 `agent.tools.*.enabled` 中添加开关配置
+5. 创建对应的单元测试类（Mock 外部 API 调用）
+6. Spring 自动注入 `List<Tool>`，无需手动注册
 
 ### 切换 LLM 提供商
 
@@ -402,13 +456,13 @@ private static final String SYSTEM_PROMPT =
 - 启动时 MySQL → 向量索引自动重建
 - 212 个单元测试（含 RAG 知识库 + 两级回收站测试）
 
-### 🔜 Phase 3：AI Agent 智能体
+### ⏳ Phase 3：AI Agent 智能体（进行中）
 
-- LangChain4j Tool Calling
-- 内置工具：网页搜索、数学计算、代码执行
-- Agent 可视化推理过程
-- 记忆摘要 + 长期记忆
-- LangGraph4j 多 Agent 编排
+- ✅ **3.1 LangChain4j Tool Calling 基础框架** — 两阶段流式架构、AgentService/AgentController、结构化 SSE 事件协议（thinking/tool_call/tool_result/token/done/error）、238 个单元测试
+- 🔜 **3.2 内置工具** — WebSearchTool（Tavily API）、MathTool（exp4j）、CodeExecutionTool（JS ScriptEngine）
+- 🔜 **3.3 Agent 可视化推理过程** — Chat.vue 推理面板、工具调用展示
+- 🔜 **3.4 记忆系统** — MessageWindowChatMemory + Redis 持久化 + 对话摘要
+- 🔜 **3.5 多 Agent 编排** — 自定义 StateGraph：Supervisor → Specialist Agents → 结果聚合
 
 ### 🔜 Phase 4：智能搜索与分析
 
@@ -470,11 +524,12 @@ AI_EMBEDDING_MODEL=bge-large-zh-v1.5
 
 ## 相关文档
 
-- [CLAUDE.md](CLAUDE.md) — 项目架构与开发规范（含 RAG 知识库完整文档）
-- [项目构建教程1.md](项目构建教程1.md) — 用户认证系统 28 步完整构建过程
-- [项目构建教程2.md](项目构建教程2.md) — AI 智能对话 + RAG 知识库详细实现（Phase 1 + Phase 2）
-- [WECHAT_SETUP_GUIDE.md](WECHAT_SETUP_GUIDE.md) — 微信扫码登录配置指南
-- [P0_SECURITY_FIX.md](P0_SECURITY_FIX.md) — P0 安全修复记录
+- [CLAUDE.md](CLAUDE.md) — 项目架构与开发规范（含 RAG + Agent 完整文档）
+- [项目构建教程1.md](Project%20Detail%20Guide/项目构建教程1.md) — 用户认证系统 28 步完整构建过程
+- [项目构建教程2.md](Project%20Detail%20Guide/项目构建教程2.md) — AI 智能对话 + RAG 知识库详细实现（Phase 1 + Phase 2 + Phase 3 Agent 概述）
+- [WECHAT_SETUP_GUIDE.md](Project%20Detail%20Guide/WECHAT_SETUP_GUIDE.md) — 微信扫码登录配置指南
+- [P0_SECURITY_FIX.md](FIX_Document/P0_SECURITY_FIX.md) — P0 安全修复记录
+- [README.md](README.md) — 项目主 README（含最新路线图和完整 API 文档）
 - [API 文档](http://localhost:8080/doc.html) — Knife4j 在线文档（需启动后端）
 
 ---

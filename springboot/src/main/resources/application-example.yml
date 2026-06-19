@@ -59,3 +59,35 @@ wechat:
   app-id: ${WECHAT_APP_ID:xxx}
   app-secret: ${WECHAT_APP_SECRET:xxxx}
   callback-url: ${WECHAT_CALLBACK_URL:https://xxxxxx/user/wechat/callback}
+
+# ==================== AI 扩展配置（Phase 1）====================
+ai:
+  api-key: ${AI_API_KEY:YOUR_DEEPSEEK_API_KEY}
+  base-url: ${AI_BASE_URL:https://api.deepseek.com/v1}
+  model-name: ${AI_MODEL_NAME:deepseek-chat}
+  temperature: ${AI_TEMPERATURE:0.7}
+  max-tokens: ${AI_MAX_TOKENS:4096}
+  timeout-seconds: ${AI_TIMEOUT_SECONDS:120}
+
+# ==================== AI Agent 智能体配置（Phase 3）====================
+agent:
+  tools:
+    web-search:
+      enabled: ${AGENT_TOOL_WEB_SEARCH:true}
+    math:
+      enabled: ${AGENT_TOOL_MATH:true}
+    code-execution:
+      enabled: ${AGENT_TOOL_CODE_EXEC:false}
+      timeout-seconds: 5
+      max-output-length: 10000
+  tavily:
+    api-key: ${TAVILY_API_KEY:YOUR_TAVILY_API_KEY}
+    base-url: https://api.tavily.com/search
+    timeout-seconds: 15
+  multi-agent:
+    enabled: ${AGENT_MULTI_AGENT:false}
+    max-specialist-calls: 3
+  memory:
+    window-size: 20
+    summary-trigger-count: 10
+    summary-max-length: 300

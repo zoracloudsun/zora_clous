@@ -120,6 +120,13 @@ AI_TIMEOUT_SECONDS=120
 AI_EMBEDDING_API_KEY=sk-your-embedding-key
 AI_EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
 AI_EMBEDDING_MODEL=bge-large-zh-v1.5
+
+# ===== Agent 智能体（Phase 3）=====
+TAVILY_API_KEY=tvly-your-tavily-api-key
+# 工具开关（默认启用搜索和数学，代码执行需手动开启）
+# AGENT_TOOL_WEB_SEARCH=true
+# AGENT_TOOL_MATH=true
+# AGENT_TOOL_CODE_EXEC=false
 ```
 
 > **获取 API Key**：
@@ -512,6 +519,14 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 | POST | `/ai/conversations/{id}/restore` | 恢复已删除对话 | ✅ |
 | DELETE | `/ai/conversations/{id}/permanent` | 永久删除对话 | ✅ |
 
+### AI Agent 智能体
+
+| 方法 | 路径 | 说明 | 认证 |
+|------|------|------|:----:|
+| POST | `/agent/chat/stream` | Agent SSE 流式对话（支持工具调用，结构化事件） | ✅ |
+
+> Agent 端点采用**两阶段流式**架构：非流式模型推理循环 + 流式模型最终输出。SSE 事件：`thinking`/`tool_call`/`tool_result`/`token`/`done`/`error`。
+
 ### RAG 知识库
 
 | 方法 | 路径 | 说明 | 认证 |
@@ -680,9 +695,11 @@ RuntimeException
 | MyBatis-Plus | 3.5.12 | ORM（BaseMapper 免写 SQL + 分页插件） |
 | MySQL | 8.x | 持久化存储 |
 | Redis | 7.x | Token 缓存 + 验证码 + 登录失败计数 + 微信状态 |
-| LangChain4j | 1.15.0 | AI 应用框架（Java 原生，流式对话 + Embedding） |
+| LangChain4j | 1.15.0 | AI 应用框架（Java 原生，流式对话 + Embedding + Tool Calling Agent） |
 | DeepSeek Chat | V3 | 大语言模型（兼容 OpenAI API） |
 | Apache Tika | 2.9.2 | 文档文本提取（PDF/DOCX/DOC/TXT/MD） |
+| Tavily Search | — | Agent 网页搜索工具 API |
+| exp4j | 0.4.8 | Agent 安全数学表达式求值引擎 |
 | Spring Security | 6.x | BCrypt 密码加密 |
 | jjwt | 0.12.6 | JWT 生成/解析/类型校验 |
 | JavaMail | 3.5.11 | 163 邮箱 SMTP 验证码发送 |
@@ -778,13 +795,13 @@ AI_MODEL_NAME=your-model-name
 - [x] 启动时向量索引自动重建
 - [x] 212 个单元测试（含 RAG 知识库 + 两级回收站测试）
 
-### 🔜 Phase 3：AI Agent 智能体
+### 🔜 Phase 3：AI Agent 智能体（进行中）
 
-- [ ] LangChain4j Tool Calling
-- [ ] 内置工具：网页搜索、数学计算、代码执行
-- [ ] Agent 可视化推理过程
-- [ ] 记忆摘要 + 长期记忆
-- [ ] LangGraph4j 多 Agent 编排
+- [x] **3.1 LangChain4j Tool Calling 基础框架** — 两阶段流式架构（非流式推理 + 流式输出）、AgentService/AgentController、结构化 SSE 事件协议（thinking/tool_call/tool_result/token/done/error）、238 个单元测试
+- [ ] **3.2 内置工具** — WebSearchTool（Tavily API）、MathTool（exp4j）、CodeExecutionTool（JS ScriptEngine）
+- [ ] **3.3 Agent 可视化推理过程** — Chat.vue 推理面板、工具调用展示
+- [ ] **3.4 记忆系统** — MessageWindowChatMemory + Redis 持久化 + 对话摘要
+- [ ] **3.5 多 Agent 编排** — 自定义 StateGraph：Supervisor → Specialist Agents → 结果聚合
 
 ### 🔜 Phase 4：智能搜索与分析
 
@@ -799,9 +816,9 @@ AI_MODEL_NAME=your-model-name
 
 | 文档 | 说明 |
 |------|------|
-| [CLAUDE.md](CLAUDE.md) | 项目架构与开发规范（含 RAG 完整文档） |
+| [CLAUDE.md](CLAUDE.md) | 项目架构与开发规范（含 RAG + Agent 完整文档） |
 | [项目构建教程1.md](Project%20Detail%20Guide/项目构建教程1.md) | 用户认证系统 28 步完整构建过程 |
-| [项目构建教程2.md](Project%20Detail%20Guide/项目构建教程2.md) | AI 智能对话 + RAG 知识库详细实现 |
+| [项目构建教程2.md](Project%20Detail%20Guide/项目构建教程2.md) | AI 智能对话 + RAG 知识库详细实现（含 Phase 3 Agent 概述） |
 | [WECHAT_SETUP_GUIDE.md](Project%20Detail%20Guide/WECHAT_SETUP_GUIDE.md) | 微信扫码登录完整配置指南 |
 | [P0_SECURITY_FIX.md](FIX_Document/P0_SECURITY_FIX.md) | P0 安全修复记录：Token 类型校验 + 暴力破解防护 |
 | [P1_SECURITY_FIX.md](FIX_Document/P1_SECURITY_FIX.md) | P1 安全修复记录 |
