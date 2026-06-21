@@ -17,6 +17,12 @@
 | P3-4 | 工具规格未传递给 LLM（`tools` 字段缺失） | 🔴 高 | ✅ 已修复 | 手动构建 `ToolSpecification` 备用方案 |
 | P3-5 | SSE 流式输出卡死（背压问题） | 🔴 高 | ✅ 已修复 | `streamTextAsTokens` chunk 3→20 字符 |
 | P3-6 | 推理完成后无流式输出（token 未推送到 SSE） | 🔴 高 | ✅ 已修复 | `runAgentLoop()` 所有返回路径添加 `streamTextAsTokens()` |
+| P3-7 | SSE 事件全部同时到达（推理面板静态、回答秒蹦出） | 🔴 高 | ✅ 已修复 | `Flux.subscribeOn(Schedulers.boundedElastic())` 解除 Netty 线程阻塞 |
+| P3-8 | 推理面板与消息气泡分离（UX 不直观） | 🟡 低 | ✅ 已修复 | 推理步骤移入 AI 消息气泡内部，支持展开/收起 |
+| P3-9 | LaTeX 数学公式未渲染 | 🟠 中 | ✅ 已修复 | 新增 KaTeX + marked 数学扩展 |
+| P3-10 | CJK 字符旁的 `**加粗**` 不生效 | 🟠 中 | ✅ 已修复 | `fixCjkBold()` 在 CJK 与 `**` 间插入零宽空格 |
+| P3-11 | 发送后输入框高度不回缩 | 🟡 低 | ✅ 已修复 | 发送后 `nextTick` 重置 textarea 高度 |
+| P3-12 | 推理完成后图标仍旋转 | 🟡 低 | ✅ 已修复 | `.reasoning-done` 类禁用动画 |
 
 ---
 
@@ -393,6 +399,170 @@ return fallback;
 
 ---
 
+## P3-7：SSE 事件全部同时到达（推理面板静态、回答秒蹦出）
+
+### 问题描述
+
+Agent 推理面板的 thinking / tool_call / tool_result 步骤不是逐步出现的，而是**全部同时显示**。最终回答也不是流式逐字输出，而是**瞬间全部出现**。推理面板在回答出现后仍然保持展开状态。
+
+### 根因分析
+
+`Flux.create()` 的 lambda 在 **Netty 事件循环线程**上同步执行。整个 Agent 工作流（LLM 调用 2-10 秒、工具执行、数据库写入）阻塞了该线程。在此期间，所有 `emitter.next()` 推送的 SSE 事件被 Reactor **内部缓冲**，直到 lambda 执行完毕才一次性 flush 到客户端。
+
+```text
+修复前的线程模型：
+  Netty Event Loop 线程
+    ├── Flux.create() lambda 开始
+    │     ├── emitter.next(thinking)     → 缓冲
+    │     ├── LLM 调用（阻塞 3 秒）      → 线程被占用
+    │     ├── emitter.next(tool_call)    → 缓冲
+    │     ├── 工具执行（阻塞 1 秒）       → 线程被占用
+    │     ├── emitter.next(tool_result)  → 缓冲
+    │     ├── emitter.next(token×N)      → 缓冲
+    │     └── emitter.complete()
+    └── lambda 结束 → 一次性 flush 所有缓冲事件 → 前端瞬间收到全部事件
+
+修复后的线程模型：
+  Netty Event Loop 线程（不阻塞，负责 flush）
+    └── 持续读取 SSE 事件 → 逐步发送给客户端
+
+  BoundedElastic 线程池（阻塞工作）
+    ├── Flux.create() lambda 开始
+    │     ├── emitter.next(thinking)     → 立即 flush → 前端实时显示
+    │     ├── LLM 调用（阻塞 3 秒）      → Netty 线程不受影响
+    │     ├── emitter.next(tool_call)    → 立即 flush → 前端实时显示
+    │     ├── 工具执行（阻塞 1 秒）       → Netty 线程不受影响
+    │     ├── emitter.next(tool_result)  → 立即 flush → 前端实时显示
+    │     ├── emitter.next(token×N)      → 逐步 flush → 前端流式显示
+    │     └── emitter.complete()
+    └── lambda 结束
+```
+
+### 修复实现
+
+**文件**：[AgentServiceImpl.java](springboot/src/main/java/com/zora/agent/impl/AgentServiceImpl.java)
+
+```java
+return Flux.<String>create(emitter -> {
+    // ... Agent 工作流（LLM 调用、工具执行等阻塞操作）...
+}, FluxSink.OverflowStrategy.BUFFER)
+// 关键：将阻塞的 Agent 工作调度到弹性线程池，
+// 避免阻塞 Netty 事件循环线程，使 SSE 事件能逐步 flush 到客户端。
+.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+.doFinally(signal -> activeStreams.decrementAndGet());
+```
+
+### Reactor 线程模型说明
+
+| 组件 | 线程 | 职责 |
+| :--- | :--- | :--- |
+| `Flux.create()` lambda | `boundedElastic-N` | 执行阻塞工作（LLM 调用、工具执行、DB 写入） |
+| Netty Event Loop | `reactor-http-nio-N` | 读取 `emitter.next()` 推送的事件，flush 到 HTTP 连接 |
+| `subscribeOn()` | — | 指定 Flux 在哪个线程池执行 lambda |
+| `OverflowStrategy.BUFFER` | — | 当 Netty 消费速度跟不上时，缓冲多余事件（而非丢弃） |
+
+**为什么用 `boundedElastic` 而不是 `parallel`**：
+- `boundedElastic`：适合阻塞 I/O 操作，线程数自动伸缩（默认最多 10×CPU 核心）
+- `parallel`：适合 CPU 密集操作，线程数固定等于 CPU 核心数
+- Agent 的 LLM 调用是典型阻塞 I/O（网络请求 2-10 秒），用 `boundedElastic` 最合适
+
+### 关键经验
+
+- **`Flux.create()` + 阻塞操作 = 必须 `subscribeOn()`** — 这是 Reactor 最常见的陷阱之一
+- **不加 `subscribeOn()` 时**，lambda 在 Netty 线程执行，阻塞事件循环，所有事件被缓冲后一次性 flush
+- **`subscribeOn(Schedulers.boundedElastic())`** 将阻塞工作移到专用线程池，Netty 线程保持空闲以逐步 flush 事件
+- **`OverflowStrategy.BUFFER`** 确保事件不会丢失 — 如果 Netty 短暂繁忙，事件被缓冲而非丢弃
+
+---
+
+## P3-8：推理面板与消息气泡分离
+
+### 问题描述
+
+推理过程以独立面板显示在聊天区域顶部，与 AI 回复气泡分离，UX 不直观。用户无法将推理过程与具体的 AI 回复关联。
+
+### 修复实现
+
+将推理步骤移入 AI 消息气泡内部：
+
+- **流式消息中**：推理步骤在气泡顶部实时展开，下方显示流式回答
+- **对话完成后**：推理步骤默认收起为一行摘要（"推理过程 (N 步)"），点击可展开
+- **每条消息独立**：推理步骤保存在消息对象的 `reasoningSteps` 属性中，支持独立展开/收起
+
+---
+
+## P3-9：LaTeX 数学公式未渲染
+
+### 问题描述
+
+AI 返回的 LaTeX 数学公式（如 `\begin{aligned}...\end{aligned}`）以原始文本显示，未渲染为数学符号。
+
+### 修复实现
+
+新增 KaTeX 依赖 + marked 自定义扩展：
+
+- **块级公式**：`$$...$$`、`\[...\]`、`\begin{...}...\end{...}` → `katex.renderToString(text, { displayMode: true })`
+- **行内公式**：`\(...\)` → `katex.renderToString(text, { displayMode: false })`
+- **DOMPurify 白名单**：允许 KaTeX 的 MathML 标签通过消毒过滤
+
+---
+
+## P3-10：CJK 字符旁的加粗语法不生效
+
+### 问题描述
+
+中文字符紧跟 `**` 时加粗不生效：`符合**加粗**的条件` 显示为原始 `**` 标记。
+
+### 根因分析
+
+Marked v18 使用 GFM 规范解析加粗。GFM 的 left-flanking delimiter run 规则要求 `**` 前面不能紧接 CJK 字符。
+
+### 修复实现
+
+`fixCjkBold()` 函数在 CJK 字符与 `**` 之间插入零宽空格（U+200B）：
+
+```javascript
+function fixCjkBold(text) {
+  return text
+    .replace(/([一-鿿　-〿＀-￯])(\*\*)/g, '$1​$2')
+    .replace(/(\*\*)([一-鿿　-〿＀-￯])/g, '$1​$2')
+}
+```
+
+---
+
+## P3-11：发送后输入框高度不回缩
+
+### 问题描述
+
+多行输入后发送消息，textarea 高度保持展开状态，不会自动回缩到单行高度。刷新页面后才恢复。
+
+### 修复实现
+
+在 `handleSend` 中清空 `inputMessage` 后，`nextTick` 重置 textarea 高度：
+
+```javascript
+inputMessage.value = ''
+nextTick(() => { if (textareaRef.value) textareaRef.value.style.height = 'auto' })
+```
+
+---
+
+## P3-12：推理完成后图标仍旋转
+
+### 问题描述
+
+推理面板中的 thinking 图标（Loading）在对话完成后仍持续旋转。
+
+### 修复实现
+
+通过 `.reasoning-done` CSS 类区分流式/完成状态：
+
+- **流式中**：`.reasoning-steps-inline:not(.reasoning-done)` → 图标有动画（spin/pulse/pop-in）
+- **完成后**：`.reasoning-steps-inline.reasoning-done` → 图标静止
+
+---
+
 ## 验证方法
 
 ### P3-1 验证
@@ -433,7 +603,9 @@ INFO  工具规格: name=searchWeb
 | 文件 | 修复项 | 变更内容 |
 | :--- | :---: | :------- |
 | [vite.config.js](web/frontend/vite.config.js) | P3-1 | 新增 `/agent` 代理规则 |
-| [AgentServiceImpl.java](springboot/src/main/java/com/zora/agent/impl/AgentServiceImpl.java) | P3-2,3,4,5,6 | 移除重复 thinking（P3-2）、强化 System Prompt（P3-3）、手动构建 ToolSpecification 备用方案（P3-4）、chunk 3→20（P3-5）、3 个返回路径添加 streamTextAsTokens（P3-6） |
+| [AgentServiceImpl.java](springboot/src/main/java/com/zora/agent/impl/AgentServiceImpl.java) | P3-2,3,4,5,6,7 | 移除重复 thinking（P3-2）、强化 System Prompt（P3-3）、手动构建 ToolSpecification 备用方案（P3-4）、chunk 3→20（P3-5）、3 个返回路径添加 streamTextAsTokens（P3-6）、subscribeOn(boundedElastic)（P3-7） |
+| [Chat.vue](web/frontend/src/views/Chat.vue) | P3-8,9,10,11,12 | 推理面板移入气泡（P3-8）、KaTeX 数学扩展（P3-9）、CJK 加粗修复（P3-10）、输入框高度重置（P3-11）、完成后停止动画（P3-12） |
+| [package.json](web/frontend/package.json) | P3-9 | 新增 `katex` 依赖 |
 
 ---
 
@@ -446,3 +618,4 @@ INFO  工具规格: name=searchWeb
 | **SSE 流的每个返回路径都必须推送 token** | `return answer` 不等于 `streamTextAsTokens(answer); return answer` |
 | **chunk 大小影响 SSE 背压** | 3 字符/事件 × 1000 事件 = 卡死；20 字符/事件 × 150 事件 = 流畅 |
 | **System Prompt 的措辞影响 LLM 行为** | "可以使用工具" → 被动；"必须使用搜索工具" → 主动 |
+| **Flux.create() + 阻塞操作 = 必须 subscribeOn()** | 不加时阻塞 Netty 线程，所有 SSE 事件被缓冲后一次性 flush；加 `subscribeOn(boundedElastic)` 后事件逐步到达客户端 |

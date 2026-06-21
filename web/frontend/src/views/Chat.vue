@@ -196,69 +196,7 @@
         </div>
       </header>
 
-      <!-- Phase 3.3: Agent 推理过程面板 -->
-      <Transition name="reasoning-panel">
-        <div v-if="agentMode && reasoningSteps.length > 0 && showReasoning" class="reasoning-panel">
-          <div class="reasoning-header">
-            <div class="reasoning-title">
-              <el-icon :size="14"><Cpu /></el-icon>
-              <span>推理过程</span>
-              <span class="reasoning-count">{{ reasoningSteps.length }} 步</span>
-            </div>
-            <button class="reasoning-collapse" @click="showReasoning = false" title="收起">
-              <el-icon :size="14"><ArrowUp /></el-icon>
-            </button>
-          </div>
-          <div class="reasoning-steps">
-            <div
-              v-for="(step, idx) in reasoningSteps"
-              :key="idx"
-              class="reasoning-step"
-              :class="'step-' + step.type"
-            >
-              <!-- thinking: 思考过程 -->
-              <template v-if="step.type === 'thinking'">
-                <span class="step-icon step-icon-think">
-                  <el-icon :size="12"><Loading /></el-icon>
-                </span>
-                <span class="step-text">{{ step.content }}</span>
-              </template>
-
-              <!-- tool_call: 工具调用 -->
-              <template v-else-if="step.type === 'tool_call'">
-                <span class="step-icon step-icon-tool">
-                  <el-icon :size="12"><Tools /></el-icon>
-                </span>
-                <span class="step-label">调用工具：</span>
-                <span class="step-tool-name">{{ step.tool }}</span>
-                <span class="step-args" v-if="step.args && Object.keys(step.args).length">
-                  <code>{{ formatToolArgs(step.args) }}</code>
-                </span>
-              </template>
-
-              <!-- tool_result: 工具结果 -->
-              <template v-else-if="step.type === 'tool_result'">
-                <span class="step-icon step-icon-result">
-                  <el-icon :size="12"><CircleCheck /></el-icon>
-                </span>
-                <span class="step-label">工具返回：</span>
-                <span class="step-result-text">{{ formatToolResult(step.content) }}</span>
-              </template>
-            </div>
-          </div>
-        </div>
-      </Transition>
-
-      <!-- 收起态：显示推理摘要条 -->
-      <div
-        v-if="agentMode && reasoningSteps.length > 0 && !showReasoning"
-        class="reasoning-collapsed"
-        @click="showReasoning = true"
-      >
-        <el-icon :size="12"><Cpu /></el-icon>
-        <span>推理过程 ({{ reasoningSteps.length }} 步)</span>
-        <el-icon :size="12"><ArrowDown /></el-icon>
-      </div>
+      <!-- Phase 3.3: 推理面板已移入 AI 消息气泡内部 -->
 
       <!-- 消息列表 -->
       <div class="chat-messages" ref="messagesContainer">
@@ -300,6 +238,56 @@
           </div>
           <div class="message-body">
             <div class="message-sender">{{ msg.role === 'user' ? '你' : 'AI' }}</div>
+
+            <!-- Agent 推理过程（嵌入 AI 消息气泡内） -->
+            <div
+              v-if="msg.role === 'assistant' && msg.reasoningSteps && msg.reasoningSteps.length > 0"
+              class="reasoning-inline"
+            >
+              <button
+                class="reasoning-toggle"
+                @click="msg.showReasoning = !msg.showReasoning"
+              >
+                <el-icon :size="12"><Cpu /></el-icon>
+                <span>推理过程 ({{ msg.reasoningSteps.length }} 步)</span>
+                <el-icon :size="12"><ArrowUp v-if="msg.showReasoning" /><ArrowDown v-else /></el-icon>
+              </button>
+              <Transition name="reasoning-panel">
+                <div v-if="msg.showReasoning" class="reasoning-steps-inline reasoning-done">
+                  <div
+                    v-for="(step, idx) in msg.reasoningSteps"
+                    :key="idx"
+                    class="reasoning-step"
+                    :class="'step-' + step.type"
+                  >
+                    <template v-if="step.type === 'thinking'">
+                      <span class="step-icon step-icon-think">
+                        <el-icon :size="12"><Loading /></el-icon>
+                      </span>
+                      <span class="step-text">{{ step.content }}</span>
+                    </template>
+                    <template v-else-if="step.type === 'tool_call'">
+                      <span class="step-icon step-icon-tool">
+                        <el-icon :size="12"><Tools /></el-icon>
+                      </span>
+                      <span class="step-label">调用工具：</span>
+                      <span class="step-tool-name">{{ step.tool }}</span>
+                      <span class="step-args" v-if="step.args && Object.keys(step.args).length">
+                        <code>{{ formatToolArgs(step.args) }}</code>
+                      </span>
+                    </template>
+                    <template v-else-if="step.type === 'tool_result'">
+                      <span class="step-icon step-icon-result">
+                        <el-icon :size="12"><CircleCheck /></el-icon>
+                      </span>
+                      <span class="step-label">工具返回：</span>
+                      <span class="step-result-text">{{ formatToolResult(step.content) }}</span>
+                    </template>
+                  </div>
+                </div>
+              </Transition>
+            </div>
+
             <div
               v-if="msg.role === 'assistant'"
               class="message-text markdown-body"
@@ -332,6 +320,56 @@
                 <span></span><span></span><span></span>
               </span>
             </div>
+
+            <!-- Agent 推理过程（流式消息气泡内，实时更新） -->
+            <div
+              v-if="agentMode && reasoningSteps.length > 0"
+              class="reasoning-inline"
+            >
+              <button
+                class="reasoning-toggle"
+                @click="showReasoning = !showReasoning"
+              >
+                <el-icon :size="12"><Cpu /></el-icon>
+                <span>推理过程 ({{ reasoningSteps.length }} 步)</span>
+                <el-icon :size="12"><ArrowUp v-if="showReasoning" /><ArrowDown v-else /></el-icon>
+              </button>
+              <Transition name="reasoning-panel">
+                <div v-if="showReasoning" class="reasoning-steps-inline">
+                  <div
+                    v-for="(step, idx) in reasoningSteps"
+                    :key="idx"
+                    class="reasoning-step"
+                    :class="'step-' + step.type"
+                  >
+                    <template v-if="step.type === 'thinking'">
+                      <span class="step-icon step-icon-think">
+                        <el-icon :size="12"><Loading /></el-icon>
+                      </span>
+                      <span class="step-text">{{ step.content }}</span>
+                    </template>
+                    <template v-else-if="step.type === 'tool_call'">
+                      <span class="step-icon step-icon-tool">
+                        <el-icon :size="12"><Tools /></el-icon>
+                      </span>
+                      <span class="step-label">调用工具：</span>
+                      <span class="step-tool-name">{{ step.tool }}</span>
+                      <span class="step-args" v-if="step.args && Object.keys(step.args).length">
+                        <code>{{ formatToolArgs(step.args) }}</code>
+                      </span>
+                    </template>
+                    <template v-else-if="step.type === 'tool_result'">
+                      <span class="step-icon step-icon-result">
+                        <el-icon :size="12"><CircleCheck /></el-icon>
+                      </span>
+                      <span class="step-label">工具返回：</span>
+                      <span class="step-result-text">{{ formatToolResult(step.content) }}</span>
+                    </template>
+                  </div>
+                </div>
+              </Transition>
+            </div>
+
             <!-- Agent 推理中暂未输出 token 时显示占位提示 -->
             <div
               v-if="agentMode && !streamingContent && reasoningSteps.length > 0"
@@ -415,6 +453,8 @@ import { marked } from 'marked'
 import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
 import 'highlight.js/styles/github.css'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 import {
   getConversations, createConversation, getConversationMessages,
   deleteConversation, streamChat,
@@ -501,14 +541,78 @@ const groupedConversations = computed(() => {
   return result
 })
 
-// ==================== Markdown 渲染 ====================
+// ==================== Markdown 渲染（含 LaTeX 数学公式） ====================
 
 marked.setOptions({ breaks: true, gfm: true })
+
+// 注册数学公式扩展
+// 块级：$$...$$、\[...\]、\begin{...}...\end{...}
+// 行内：$...$、\(...\)  （需放在 marked.use 中，让 marked 先处理）
+marked.use({
+  extensions: [
+    // 块级数学公式
+    {
+      name: 'mathBlock',
+      level: 'block',
+      start(src) { return src.match(/\$\$|\\\[|\\begin/)?.index },
+      tokenizer(src) {
+        // \begin{...} ... \end{...}
+        const beginMatch = src.match(/^\\begin\{([^}]+)\}([\s\S]+?)\\end\{\1\}/)
+        if (beginMatch) return { type: 'mathBlock', raw: beginMatch[0], text: beginMatch[0].trim() }
+        // $$ ... $$
+        let match = src.match(/^\$\$([\s\S]+?)\$\$/)
+        if (match) return { type: 'mathBlock', raw: match[0], text: match[1].trim() }
+        // \[ ... \]
+        match = src.match(/^\\\[([\s\S]+?)\\\]/)
+        if (match) return { type: 'mathBlock', raw: match[0], text: match[1].trim() }
+      },
+      renderer(token) {
+        try {
+          return katex.renderToString(token.text, { displayMode: true, throwOnError: false, trust: true })
+        } catch { return `<pre>${escapeHtml(token.text)}</pre>` }
+      }
+    },
+    // 行内数学公式（仅 \(...\)，不用 $ 避免和 markdown 加粗/货币冲突）
+    {
+      name: 'mathInline',
+      level: 'inline',
+      start(src) { return src.match(/\\\(/)?.index },
+      tokenizer(src) {
+        const parenMatch = src.match(/^\\\(([\s\S]+?)\\\)/)
+        if (parenMatch) return { type: 'mathInline', raw: parenMatch[0], text: parenMatch[1].trim() }
+      },
+      renderer(token) {
+        try {
+          return katex.renderToString(token.text, { displayMode: false, throwOnError: false, trust: true })
+        } catch { return escapeHtml(token.text) }
+      }
+    }
+  ]
+})
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+/**
+ * 预处理文本，在 CJK 字符与 ** 分隔符之间插入零宽空格
+ * 修复 Marked v18 GFM 规范不识别 CJK 字符旁的 ** 加粗标记的问题
+ *
+ * 原理：GFM 的 left-flanking delimiter run 要求 ** 前面是 ASCII 标点或空格，
+ * CJK 字符不在此列。插入零宽空格（U+200B）可绕过此限制，
+ * 且零宽空格在渲染时不可见，不影响显示效果。
+ */
+function fixCjkBold(text) {
+  // CJK 字符范围：一-鿿 (基本) + 　-〿 (标点) + ＀-￯ (全角)
+  return text
+    .replace(/([一-鿿　-〿＀-￯])(\*\*)/g, '$1​$2')
+    .replace(/(\*\*)([一-鿿　-〿＀-￯])/g, '$1​$2')
+}
 
 const renderMarkdown = (text) => {
   if (!text) return ''
   try {
-    const raw = marked.parse(text, {
+    const raw = marked.parse(fixCjkBold(text), {
       highlight: (code, lang) => {
         if (lang && hljs.getLanguage(lang)) {
           try { return hljs.highlight(code, { language: lang }).value } catch {}
@@ -517,7 +621,12 @@ const renderMarkdown = (text) => {
         return code
       },
     })
-    return DOMPurify.sanitize(raw)
+    // ADD_TAGS/ADD_ATTR: 允许 KaTeX 生成的 HTML 元素和属性通过 DOMPurify
+    return DOMPurify.sanitize(raw, {
+      ADD_TAGS: ['math', 'mrow', 'mi', 'mo', 'mn', 'msup', 'msub', 'mfrac', 'msqrt',
+        'mover', 'munder', 'munderover', 'mspace', 'semantics', 'annotation', 'annotation-encoding'],
+      ADD_ATTR: ['mathvariant', 'mathsize', 'mathcolor', 'mathbackground', 'dir', 'aria-hidden'],
+    })
   } catch {
     return text
   }
@@ -646,6 +755,8 @@ const handleSend = async (e) => {
   }
 
   inputMessage.value = ''
+  // 重置输入框高度（textarea 不会自动收缩）
+  nextTick(() => { if (textareaRef.value) textareaRef.value.style.height = 'auto' })
   isStreaming.value = true
   streamingContent.value = ''
   // Phase 3.3: 清空上一轮的推理步骤
@@ -683,7 +794,13 @@ const handleSend = async (e) => {
       // onDone: 对话完成
       async (conversationId) => {
         if (streamingContent.value) {
-          messages.value.push({ role: 'assistant', content: streamingContent.value })
+          messages.value.push({
+            role: 'assistant',
+            content: streamingContent.value,
+            // 保存推理步骤到消息对象，支持后续展开/收起
+            reasoningSteps: reasoningSteps.value.length > 0 ? [...reasoningSteps.value] : null,
+            showReasoning: false,
+          })
         }
         streamingContent.value = ''
         isStreaming.value = false
@@ -1523,6 +1640,23 @@ onMounted(() => { loadConversations(); loadKbs() })
   margin: 14px 0;
 }
 
+/* ==================== KaTeX 数学公式样式 ==================== */
+.markdown-body :deep(.katex-display) {
+  margin: 12px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 0;
+}
+.markdown-body :deep(.katex) {
+  font-size: 1.05em;
+}
+.markdown-body :deep(.katex-html) {
+  white-space: nowrap;
+}
+.markdown-body :deep(.katex-display > .katex) {
+  font-size: 1.15em;
+}
+
 /* ==================== 输入区域 ==================== */
 .chat-input-area {
   padding: 12px 24px 16px;
@@ -1621,71 +1755,47 @@ onMounted(() => { loadConversations(); loadKbs() })
   margin-right: auto;
 }
 
-/* ==================== Phase 3.3: Agent 推理面板 ==================== */
+/* ==================== Phase 3.3: Agent 推理过程（内联于 AI 消息气泡） ==================== */
 
-/* 推理面板容器 */
-.reasoning-panel {
-  max-width: 820px;
-  margin: 8px auto 0;
-  background: #fafbff;
-  border: 1px solid #d6e4ff;
-  border-radius: 10px;
-  overflow: hidden;
+/* 推理过程容器（内联） */
+.reasoning-inline {
+  margin-bottom: 8px;
 }
 
-/* 推理面板头部 */
-.reasoning-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 14px;
-  background: linear-gradient(135deg, #f0f5ff, #fafbff);
-  border-bottom: 1px solid #e6f0ff;
-}
-.reasoning-title {
+/* 展开/收起按钮 */
+.reasoning-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #1677ff;
-}
-.reasoning-count {
-  font-size: 11px;
-  font-weight: 400;
-  color: #8e8e93;
-  background: #e8f0fe;
-  padding: 1px 6px;
+  padding: 6px 10px;
+  background: #fafbff;
+  border: 1px solid #d6e4ff;
   border-radius: 8px;
-}
-.reasoning-collapse {
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  color: #8e8e93;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-}
-.reasoning-collapse:hover {
-  background: #e8f0fe;
+  font-size: 12px;
   color: #1677ff;
+  cursor: pointer;
+  transition: all 0.15s;
+  width: 100%;
+}
+.reasoning-toggle:hover {
+  background: #f0f5ff;
+  border-color: #1677ff;
+}
+.reasoning-toggle span {
+  flex: 1;
+  text-align: left;
 }
 
-/* 推理步骤列表 */
-.reasoning-steps {
-  padding: 6px 14px 10px;
+/* 推理步骤列表（内联） */
+.reasoning-steps-inline {
+  padding: 6px 0 2px;
   max-height: 200px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #d0d0d4 transparent;
 }
-.reasoning-steps::-webkit-scrollbar { width: 4px; }
-.reasoning-steps::-webkit-scrollbar-thumb {
+.reasoning-steps-inline::-webkit-scrollbar { width: 4px; }
+.reasoning-steps-inline::-webkit-scrollbar-thumb {
   background: #d0d0d4;
   border-radius: 4px;
 }
@@ -1737,6 +1847,11 @@ onMounted(() => { loadConversations(); loadKbs() })
 .step-icon-tool  { background: #fef3c7; color: #f59e0b; }
 .step-icon-result { background: #d1fae5; color: #10b981; }
 
+/* 流式推理中的图标动画（完成后通过 .reasoning-done 停止） */
+.reasoning-steps-inline:not(.reasoning-done) .step-icon-think { animation: spin 1.2s linear infinite; }
+.reasoning-steps-inline:not(.reasoning-done) .step-icon-tool  { animation: pulse 1.5s ease-in-out infinite; }
+.reasoning-steps-inline:not(.reasoning-done) .step-icon-result { animation: pop-in 0.3s ease-out; }
+
 .step-text {
   color: #3c3c3e;
   flex: 1;
@@ -1764,28 +1879,6 @@ onMounted(() => { loadConversations(); loadKbs() })
   color: #3c3c3e;
   word-break: break-word;
 }
-
-/* 收起态摘要条 */
-.reasoning-collapsed {
-  max-width: 820px;
-  margin: 6px auto 0;
-  padding: 6px 14px;
-  background: #fafbff;
-  border: 1px solid #d6e4ff;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #1677ff;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.reasoning-collapsed:hover {
-  background: #f0f5ff;
-  border-color: #1677ff;
-}
-.reasoning-collapsed span { flex: 1; }
 
 /* 推理面板过渡动画 */
 .reasoning-panel-enter-active,
@@ -1820,6 +1913,14 @@ onMounted(() => { loadConversations(); loadKbs() })
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.15); opacity: 0.8; }
+}
+@keyframes pop-in {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
 }
 
 /* Agent 思考中占位文本 */

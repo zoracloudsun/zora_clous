@@ -315,7 +315,11 @@ public class AgentServiceImpl implements AgentService {
                 emitter.next(AgentEvent.error(userMsg).toJson());
                 emitter.complete();
             }
-        }).doFinally(signal -> activeStreams.decrementAndGet());
+        }, FluxSink.OverflowStrategy.BUFFER)
+        // 关键：将阻塞的 Agent 工作（LLM 调用、工具执行）调度到弹性线程池，
+        // 避免阻塞 Netty 事件循环线程，使 SSE 事件能逐步 flush 到客户端。
+        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+        .doFinally(signal -> activeStreams.decrementAndGet());
     }
 
     // ==================== Agent 推理循环 ====================
