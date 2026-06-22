@@ -23,6 +23,11 @@
 | P3-10 | CJK 字符旁的 `**加粗**` 不生效 | 🟠 中 | ✅ 已修复 | `fixCjkBold()` 在 CJK 与 `**` 间插入零宽空格 |
 | P3-11 | 发送后输入框高度不回缩 | 🟡 低 | ✅ 已修复 | 发送后 `nextTick` 重置 textarea 高度 |
 | P3-12 | 推理完成后图标仍旋转 | 🟡 低 | ✅ 已修复 | `.reasoning-done` 类禁用动画 |
+| P3-13 | Docker 部署 Agent 不可用（405） | 🔴 高 | ✅ 已修复 | nginx.conf 添加 `/agent/` location + docker-compose 补充环境变量和迁移 |
+| P3-14 | Knife4j 文档缺少 Agent 分组 | 🟠 中 | ✅ 已修复 | `paths-to-match` 添加 `/agent/**` |
+| P3-15 | Agent 与非 Agent 消息排序错乱 | 🔴 高 | ✅ 已修复 | 移除显式 `setCreatedAt()`，统一使用 MySQL `CURRENT_TIMESTAMP` |
+| P3-16 | 推理步骤瞬间全部出现 | 🔴 高 | ✅ 已修复 | 前端 `setInterval` 逐帧渲染队列 + token 缓冲 |
+| P3-17 | 对话完成后消息不显示 | 🔴 高 | ✅ 已修复 | `onDone` 不杀 timer，由 interval 自然收尾 |
 
 ---
 
@@ -598,14 +603,337 @@ INFO  工具规格: name=searchWeb
 
 ---
 
+## P3-13：Docker 部署 Agent 不可用（405 Method Not Allowed）
+
+### 问题描述
+
+本地热加载（`npm run dev`）Agent 正常，Docker 部署后发送消息返回 **HTTP 405 Method Not Allowed**。同时 Agent 环境变量未传入、数据库表未创建。
+
+### 根因分析
+
+Docker 模式前端走 Nginx，nginx.conf 中缺少 `/agent/` location 块 → POST 请求落入 `location /`（SPA 回退）→ 静态文件服务器拒绝 POST → 405。
+
+对比本地模式走 Vite dev server，其 `proxy` 配置是前缀匹配，未知路径自动代理到后端 → 不报错。
+
+```
+Docker 请求链路（修复前）：
+  浏览器 → POST /agent/chat/stream → Nginx
+    → location /user/ ? 不匹配
+    → location /ai/ ? 不匹配
+    → location / ? 匹配 → SPA fallback → 405 ❌
+
+Docker 请求链路（修复后）：
+  浏览器 → POST /agent/chat/stream → Nginx
+    → location /agent/ → proxy_pass backend:8080 → 200 ✅
+```
+
+### 次要问题
+
+| 问题 | 原因 | 修复 |
+|------|------|------|
+| Agent 数据库表未创建 | V4 迁移 SQL 未挂载到 Docker MySQL | docker-compose 添加 `V4__agent_tables.sql` |
+| Agent 环境变量未生效 | docker-compose 后端 service 无 Agent 环境变量 | 添加 `TAVILY_API_KEY`、`AGENT_TOOL_*`、`AGENT_MULTI_AGENT` |
+
+### 修复实现
+
+**文件 1**：[nginx.conf](web/frontend/nginx.conf) — 添加 `/agent/` location 块（SSE 优化 + 300s 超时）
+
+```nginx
+location /agent/ {
+    proxy_pass http://backend:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_read_timeout 300s;        # Agent 工具有多轮调用，需要更长超时
+    proxy_buffering off;            # SSE 流式必须关闭缓冲
+    proxy_cache off;
+    chunked_transfer_encoding on;
+}
+```
+
+**文件 2**：[docker-compose.yml](docker-compose.yml) — 补充 V4 迁移和环境变量
+
+```yaml
+# MySQL volumes
+- ./springboot/src/main/resources/db/migration/V4__agent_tables.sql:/docker-entrypoint-initdb.d/04-agent-tables.sql:ro
+
+# Backend environment
+TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+AGENT_TOOL_WEB_SEARCH: ${AGENT_TOOL_WEB_SEARCH:-true}
+AGENT_TOOL_MATH: ${AGENT_TOOL_MATH:-true}
+AGENT_TOOL_CODE_EXEC: ${AGENT_TOOL_CODE_EXEC:-false}
+AGENT_MULTI_AGENT: ${AGENT_MULTI_AGENT:-false}
+```
+
+---
+
+## P3-14：Knife4j 文档缺少 Agent 分组
+
+### 问题描述
+
+Phase 3 的 Agent 接口（`POST /agent/chat/stream`）在 Knife4j 文档页（`/doc.html`）不显示。
+
+### 根因分析
+
+SpringDoc 的 `paths-to-match` 是**路径白名单过滤器**。虽然 `packages-to-scan: com.zora.controller` 会扫描到 `AgentController`，但 `paths-to-match` 会进一步过滤——只有匹配 `/user/**`、`/ai/**`、`/rag/**` 的路径才出现在 OpenAPI spec 中。`/agent/**` 不在列表 → 被过滤掉。
+
+### 修复实现
+
+**文件**：[application.yml](springboot/src/main/resources/application.yml)
+
+```yaml
+springdoc:
+  group-configs:
+    - group: default
+      paths-to-match:
+        - /user/**
+        - /ai/**
+        - /rag/**
+        - /agent/**          # ← 新增
+```
+
+同时更新 [Knife4jConfig.java](springboot/src/main/java/com/zora/config/Knife4jConfig.java) 的 API 描述，添加 "AI Agent 智能体" 功能模块说明。
+
+---
+
+## P3-15：Agent 与非 Agent 消息排序错乱（时区不一致）
+
+### 问题描述
+
+在同一个对话中，先发非 Agent 消息（Agent 关闭），再发 Agent 消息（Agent 开启）。重新打开会话后，**Agent 消息排在前面**，非 Agent 消息被挤到后面——违反时间顺序。
+
+### 根因分析
+
+Docker 容器时区不一致导致 `created_at` 相差 8 小时：
+
+| 消息类型 | `created_at` 来源 | 容器时区 | 存储值 | 排序位置 |
+|---------|-------------------|---------|--------|---------|
+| 非 Agent | MySQL `CURRENT_TIMESTAMP` | Asia/Shanghai (UTC+8) | 正确时间 | 后面 |
+| Agent | Java `LocalDateTime.now()` | UTC（默认） | 早 8 小时 | **前面** ❌ |
+
+`AgentServiceImpl.saveMessage()` 显式调用 `msg.setCreatedAt(LocalDateTime.now())`，JVM 默认时区为 UTC → 比 MySQL 的 `CURRENT_TIMESTAMP`（上海时间）早 8 小时 → Agent 消息在 `ORDER BY created_at ASC` 中排到前面。
+
+### 修复实现
+
+**文件 1**：[AgentServiceImpl.java](springboot/src/main/java/com/zora/agent/impl/AgentServiceImpl.java) — 不再显式设置 `createdAt`，让 MySQL 统一处理
+
+```java
+// 修复前
+msg.setCreatedAt(LocalDateTime.now());  // JVM UTC → 早 8 小时
+messageMapper.insert(msg);
+
+// 修复后
+// 不显式设置 created_at：让 MySQL 的 DEFAULT CURRENT_TIMESTAMP 统一处理
+messageMapper.insert(msg);
+```
+
+**文件 2**：同时将 `updatedAt` 的更新改用 MySQL 函数，避免时区偏差
+
+```java
+// 修复前
+conversation.setUpdatedAt(LocalDateTime.now());
+conversationMapper.updateById(conversation);
+
+// 修复后 — 使用 LambdaUpdateWrapper.setSql 传原始 SQL
+new LambdaUpdateWrapper<ChatConversation>()
+    .eq(ChatConversation::getId, conversationId)
+    .setSql("updated_at = CURRENT_TIMESTAMP");
+conversationMapper.update(null, updateWrapper);
+```
+
+**文件 3**：[docker-compose.yml](docker-compose.yml) — 后端容器加时区（防御性措施）
+
+```yaml
+TZ: Asia/Shanghai
+JAVA_OPTS: "-Xms256m -Xmx512m -Duser.timezone=Asia/Shanghai"
+```
+
+### `LambdaUpdateWrapper.setSql()` 的作用
+
+不用 Java Entity 传值，而是直接把 SQL 片段送到 MySQL 执行。`setSql("updated_at = CURRENT_TIMESTAMP")` 让 MySQL 用自己的时钟更新时间，彻底绕过 JVM 时区问题。
+
+---
+
+## P3-16：推理步骤瞬间全部出现（推理动画）
+
+### 问题描述
+
+Agent 推理过程中的 thinking → tool_call → tool_result 步骤**全部同时出现**在一瞬间，用户看不到"一步一步推理"的视觉效果。最终回答也随着推理步骤一起出现，没有先播完推理再出答案的仪式感。
+
+### 根因分析（多层叠加）
+
+**原因 1 — 后端事件缓冲**：`Flux.create()` 中的 `emitter.next()` 调用在同步代码中紧密排列，Reactor/Netty 可能将多个事件合并成一次网络写入。
+
+**原因 2 — 前端 Vue 批量更新**：SSE 事件在同一个事件循环 tick 中到达，多次 `reasoningSteps.push()` 被 Vue 批量合并成一次 DOM 更新 → 所有步骤同时插入 → CSS 动画同时播放。
+
+**原因 3 — `onDone` 误杀 timer（见 P3-17）**：流结束时 timer 只来得及处理第 1 步就被杀死，剩余步骤全部 dump 出来。
+
+### 修复策略
+
+经过多轮迭代，最终采用的方案是 **前端 `setInterval` 逐帧渲染队列 + token 缓冲**：
+
+```
+SSE 事件到达 → pendingSteps.push()          （入队，不触发 Vue 更新）
+                    ↓
+setInterval 每 800ms:
+  ├── 队列有数据？→ shift() → reasoningSteps.push() → Vue 独立渲染 → CSS 动画播放
+  ├── 队列空 + streamEnded？→ flush 缓存的 token → push 消息 → 收尾
+  └── 队列空 + 流未结束？→ 跳过，等下一个 tick
+
+onToken 到达:
+  ├── answerRevealed？→ 直接追加到 streamingContent（答案流式显示）
+  └── 还没 reveal？→ pendingTokens.push()（先缓存，等推理播完再显示）
+```
+
+### 修复实现
+
+**文件**：[Chat.vue](web/frontend/src/views/Chat.vue)
+
+核心代码：
+
+```javascript
+// 状态变量
+let pendingSteps = []      // 推理步骤渲染队列
+let stepTimer = null        // setInterval 定时器
+let pendingTokens = []      // token 缓冲区
+let answerRevealed = false  // 答案是否已开始显示
+let streamEnded = false     // SSE 流是否已结束
+
+function startStepTimer() {
+  pendingSteps = []; pendingTokens = []
+  answerRevealed = false; streamEnded = false
+  stepTimer = setInterval(() => {
+    if (pendingSteps.length > 0) {
+      reasoningSteps.value.push(pendingSteps.shift())
+      scrollToBottom()
+    } else if (streamEnded) {
+      clearInterval(stepTimer); stepTimer = null
+      // flush tokens → push message → isStreaming = false
+      answerRevealed = true
+      streamingContent.value += pendingTokens.join('')
+      messages.value.push({ role: 'assistant', content: streamingContent.value, ... })
+      streamingContent.value = ''; isStreaming.value = false
+    }
+  }, 800)
+}
+```
+
+SSE 回调改为入队：
+```javascript
+onThinking: (content) => pendingSteps.push({ type: 'thinking', content })
+onToolCall: (tool, args) => pendingSteps.push({ type: 'tool_call', tool, args })
+onToolResult: (tool, content) => pendingSteps.push({ type: 'tool_result', tool, content })
+onToken: (token) => {
+  if (answerRevealed) streamingContent.value += token
+  else pendingTokens.push(token)  // 缓存到推理播完
+}
+```
+
+### 为什么 `setInterval` 而不用 `setTimeout` 递归？
+
+`setInterval` 由浏览器引擎保证固定间隔（800ms）。`setTimeout` 递归依赖上一次回调的执行时间，容易产生累积偏差。而且在 `boundedElastic` 线程上的 `Thread.sleep()` 不保证 SSE flush 时机——前端队列是唯一可靠的方案。
+
+### CSS 增强动画
+
+```css
+.reasoning-step {
+  /* 两段式动画：从左侧飞入 + 辉光脉冲 */
+  animation: step-fly-in 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+             step-glow-pulse 1.2s ease-out 0.3s;
+}
+@keyframes step-fly-in {
+  0%   { opacity: 0; transform: translateX(-40px); max-height: 0; }
+  100% { opacity: 1; transform: translateX(0); max-height: 50px; }
+}
+@keyframes step-glow-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(22,119,255,0); }
+  25%  { box-shadow: 0 0 16px 2px rgba(22,119,255,0.25); }
+  100% { box-shadow: 0 0 0 0 rgba(22,119,255,0); }
+}
+```
+
+---
+
+## P3-17：对话完成后消息不显示
+
+### 问题描述
+
+Agent 对话完成后，AI 回复消息**不显示在聊天区域**。刷新页面或重新打开会话后才出现（说明已保存到数据库，但前端没渲染）。
+
+### 根因分析
+
+这是一个 `onDone` 回调时序 bug：
+
+```text
+旧流程（BUG）：
+  onDone 到达 → immediately:
+    ├─ isStreaming = false   ← 流式气泡消失！
+    ├─ streamingContent = '' ← 清空
+    └─ stopStepTimer() → 杀死 interval → 全部刷出
+  interval 死了，但 token 还在 pendingTokens 里
+  → 没有流式气泡可以显示 → 消息"消失"
+  → 重新打开会话 → 从 DB 加载 → 出现 ✅
+```
+
+根本原因：`onDone` 在 interval 处理完所有推理步骤**之前**就把 `isStreaming` 设为 false 并清空了 `streamingContent`。此时 token 还在 `pendingTokens` 缓冲区中等待推理步骤完成。
+
+### 修复实现
+
+**文件**：[Chat.vue](web/frontend/src/views/Chat.vue)
+
+`onDone` 只设标记，收尾工作全部交给 interval：
+
+```javascript
+// 修复前（BUG）
+onDone: async (conversationId) => {
+  stopStepTimer()            // 杀 interval → 刷出一切 → 瞬间全部出现
+  if (streamingContent.value) {
+    messages.value.push(...)
+  }
+  streamingContent.value = ''; isStreaming.value = false
+}
+
+// 修复后
+onDone: async (conversationId) => {
+  streamEnded = true  // 只设标记，什么都不做
+  // interval 会在队列清空后自动：
+  //   1. flush pendingTokens → streamingContent
+  //   2. push 到 messages
+  //   3. isStreaming = false（流式气泡变正式消息）
+  //   4. clearInterval（自杀）
+}
+```
+
+interval 收尾逻辑（在 `streamEnded` 分支）：
+
+```javascript
+} else if (streamEnded) {
+  clearInterval(stepTimer); stepTimer = null
+  answerRevealed = true
+  streamingContent.value += pendingTokens.join('')  // flush 缓存的 token
+  if (streamingContent.value) {
+    messages.value.push({ role: 'assistant', content: streamingContent.value, ... })
+  }
+  streamingContent.value = ''; isStreaming.value = false
+  loadConversations()  // 刷新侧边栏
+}
+```
+
+---
+
 ## 文件变更总览
 
 | 文件 | 修复项 | 变更内容 |
 | :--- | :---: | :------- |
 | [vite.config.js](web/frontend/vite.config.js) | P3-1 | 新增 `/agent` 代理规则 |
-| [AgentServiceImpl.java](springboot/src/main/java/com/zora/agent/impl/AgentServiceImpl.java) | P3-2,3,4,5,6,7 | 移除重复 thinking（P3-2）、强化 System Prompt（P3-3）、手动构建 ToolSpecification 备用方案（P3-4）、chunk 3→20（P3-5）、3 个返回路径添加 streamTextAsTokens（P3-6）、subscribeOn(boundedElastic)（P3-7） |
-| [Chat.vue](web/frontend/src/views/Chat.vue) | P3-8,9,10,11,12 | 推理面板移入气泡（P3-8）、KaTeX 数学扩展（P3-9）、CJK 加粗修复（P3-10）、输入框高度重置（P3-11）、完成后停止动画（P3-12） |
+| [AgentServiceImpl.java](springboot/src/main/java/com/zora/agent/impl/AgentServiceImpl.java) | P3-2,3,4,5,6,7,15 | 移除重复 thinking（P3-2）、强化 System Prompt（P3-3）、手动构建 ToolSpecification 备用方案（P3-4）、chunk 3→20（P3-5）、3 个返回路径添加 streamTextAsTokens（P3-6）、subscribeOn(boundedElastic)（P3-7）、移除显式 setCreatedAt 修复时区排序（P3-15） |
+| [Chat.vue](web/frontend/src/views/Chat.vue) | P3-8,9,10,11,12,16,17 | 推理面板移入气泡（P3-8）、KaTeX 数学扩展（P3-9）、CJK 加粗修复（P3-10）、输入框高度重置（P3-11）、完成后停止动画（P3-12）、setInterval 逐帧渲染 + token 缓冲（P3-16）、onDone 不杀 timer（P3-17） |
 | [package.json](web/frontend/package.json) | P3-9 | 新增 `katex` 依赖 |
+| [nginx.conf](web/frontend/nginx.conf) | P3-13 | 新增 `/agent/` location 块（SSE 300s 超时 + 缓冲关闭） |
+| [docker-compose.yml](docker-compose.yml) | P3-13,15 | V4 迁移挂载、Agent 环境变量、后端 TZ + JVM 时区 |
+| [application.yml](springboot/src/main/resources/application.yml) | P3-14 | `paths-to-match` 添加 `/agent/**` |
+| [Knife4jConfig.java](springboot/src/main/java/com/zora/config/Knife4jConfig.java) | P3-14 | API 描述添加 Agent 功能模块 |
+| [AiChatServiceImpl.java](springboot/src/main/java/com/zora/service/impl/AiChatServiceImpl.java) | P3-15 | `saveMessage` 和 `updatedAt` 改用 MySQL CURRENT_TIMESTAMP |
 
 ---
 
@@ -619,3 +947,6 @@ INFO  工具规格: name=searchWeb
 | **chunk 大小影响 SSE 背压** | 3 字符/事件 × 1000 事件 = 卡死；20 字符/事件 × 150 事件 = 流畅 |
 | **System Prompt 的措辞影响 LLM 行为** | "可以使用工具" → 被动；"必须使用搜索工具" → 主动 |
 | **Flux.create() + 阻塞操作 = 必须 subscribeOn()** | 不加时阻塞 Netty 线程，所有 SSE 事件被缓冲后一次性 flush；加 `subscribeOn(boundedElastic)` 后事件逐步到达客户端 |
+| **Docker 容器时区不一致导致排序错乱** | Java `LocalDateTime.now()` 使用 JVM 时区（默认 UTC），MySQL `CURRENT_TIMESTAMP` 使用数据库时区（Asia/Shanghai），差 8 小时导致消息排序错乱 |
+| **前端 `setInterval` 比 `setTimeout` 递归更适合逐帧渲染** | `setInterval` 由浏览器引擎保证间隔，`setTimeout` 递归有累积偏差风险 |
+| **`onDone` 不能杀动画 timer** | 流结束时推理步骤还没渲染完 → `onDone` 只应设标记，让 timer 自然走完；杀 timer + 刷队列 = 瞬间全部出现 |

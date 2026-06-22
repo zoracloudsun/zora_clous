@@ -19,6 +19,7 @@ services:
       - ./springboot/src/main/resources/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
       - ./springboot/src/main/resources/db/migration/V2__chat_tables.sql:/docker-entrypoint-initdb.d/02-chat-tables.sql:ro
       - ./springboot/src/main/resources/db/migration/V3__rag_tables.sql:/docker-entrypoint-initdb.d/03-rag-tables.sql:ro
+      - ./springboot/src/main/resources/db/migration/V4__agent_tables.sql:/docker-entrypoint-initdb.d/04-agent-tables.sql:ro
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -93,8 +94,16 @@ services:
       AI_EMBEDDING_BASE_URL: ${AI_EMBEDDING_BASE_URL:-https://api.openai.com/v1}
       AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-text-embedding-3-small}
       RAG_UPLOAD_DIR: /data/uploads/rag
+      # Agent 智能体（Phase 3）
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      AGENT_TOOL_WEB_SEARCH: ${AGENT_TOOL_WEB_SEARCH:-true}
+      AGENT_TOOL_MATH: ${AGENT_TOOL_MATH:-true}
+      AGENT_TOOL_CODE_EXEC: ${AGENT_TOOL_CODE_EXEC:-false}
+      AGENT_MULTI_AGENT: ${AGENT_MULTI_AGENT:-false}
+      # 时区（与 MySQL 保持一致，避免 Java LocalDateTime 与 DB CURRENT_TIMESTAMP 偏差 8 小时）
+      TZ: Asia/Shanghai
       # JVM 调优
-      JAVA_OPTS: "-Xms256m -Xmx512m"
+      JAVA_OPTS: "-Xms256m -Xmx512m -Duser.timezone=Asia/Shanghai"
     ports:
       - "${BACKEND_PORT:-18080}:8080"
     volumes:

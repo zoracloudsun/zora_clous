@@ -769,5 +769,6 @@ agent:
 - **HTTP status codes**: 200 (success), 400 (client error), 401 (unauthorized), 403 (forbidden — insufficient role), 429 (rate limited / brute-force locked), 500 (server error)
 - **Frontend path alias**: `@` resolves to `src/` (configured in `vite.config.js`)
 - **Vite proxy**: All `/user` requests are proxied to `http://localhost:8080` in dev mode — never hardcode `localhost:8080` in frontend API calls
+- **API proxy sync rule**: When adding a new API path prefix (e.g. `/agent`), **always update BOTH** `vite.config.js` (local dev) AND `nginx.conf` (Docker). Missing nginx `location` block causes HTTP 405 in Docker while local dev works fine. SSE endpoints also need `proxy_buffering off` and extended `proxy_read_timeout`. See `FIX_Document/LOCAL_VS_DOCKER_PROXY.md` for details.
 - **Email sending**: Always async (`new Thread(() -> ...).start()`) — SMTP is slow and blocks HTTP response
 - **ngrok domain changes**: Free ngrok changes domain on restart; update both `application.yml` (`wechat.callback-url`) AND WeChat test account page (OAuth callback domain)

@@ -51,13 +51,13 @@
 │  │       └─ 未绑定 → scanned + 等待邮箱绑定           │
 │  │           → Redis: data = {nickname,avatar,openid}│
 │  │           → 返回 HTML "✅ 授权成功"               │
-	│  │           → PC 轮询 → 展示邮箱绑定表单              │
-	│  │                                                  │
-	│  └─ POST /user/wechat/bind-email                    │
-	│       → 校验邮箱验证码                                │
-	│       → 创建/关联用户 + 签发 JWT                      │
-	│       → Redis: scene = "confirmed"                  │
-	│       → Redis: wechat:token:{sceneId} = JWT Token   │
+│  │           → PC 轮询 → 展示邮箱绑定表单              │
+│  │                                                  │
+│  └─ POST /user/wechat/bind-email                    │
+│       → 校验邮箱验证码                                │
+│       → 创建/关联用户 + 签发 JWT                      │
+│       → Redis: scene = "confirmed"                  │
+│       → Redis: wechat:token:{sceneId} = JWT Token   │
 │                                                   │
 │  Redis Key 设计:                                   │
 │  ┌──────────────────────┬──────┬─────────────────┐ │

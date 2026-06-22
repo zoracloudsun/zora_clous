@@ -295,6 +295,7 @@ public class AgentServiceImpl implements AgentService {
                 } else {
                     // ===== 降级模式：无工具时直接流式对话 =====
                     emitter.next(AgentEvent.thinking("正在生成回答...").toJson());
+                    sseFlushDelay();
                     finalAnswer = generateDirectAnswer(messages, emitter);
                 }
 
@@ -368,6 +369,7 @@ public class AgentServiceImpl implements AgentService {
             // 调用 LLM（非流式，带工具规格）
             emitter.next(AgentEvent.thinking(
                     iteration == 1 ? "正在分析您的问题..." : "正在分析工具执行结果...").toJson());
+            sseFlushDelay();  // 确保 thinking 事件在 LLM 调用前 flush
 
             ChatResponse response;
             try {
@@ -380,6 +382,7 @@ public class AgentServiceImpl implements AgentService {
                 log.error("Agent 推理 LLM 调用失败: {}", e.getMessage(), e);
                 // LLM 调用失败 → 降级为直接回答
                 emitter.next(AgentEvent.thinking("AI 服务暂时繁忙，正在尝试直接回答...").toJson());
+                sseFlushDelay();
                 String fallback = generateFallbackAnswer(messages);
                 streamTextAsTokens(fallback, emitter);
                 return fallback;
@@ -394,6 +397,7 @@ public class AgentServiceImpl implements AgentService {
 
                 emitter.next(AgentEvent.thinking(
                         "AI 决定调用 " + requests.size() + " 个工具来获取更多信息...").toJson());
+                sseFlushDelay();  // 确保 thinking 事件在被合并前单独 flush
 
                 // 将 AI 的工具调用消息加入对话历史
                 messages.add(aiMessage);
@@ -403,16 +407,19 @@ public class AgentServiceImpl implements AgentService {
                     emitter.next(AgentEvent.toolCall(
                             request.name(),
                             parseArguments(request.arguments())).toJson());
+                    sseFlushDelay();  // 确保 tool_call 事件单独 flush（工具执行前）
 
                     String toolResult;
                     try {
                         // 使用 LangChain4j 的 ToolExecutor 或手动执行
                         toolResult = executeToolByName(request.name(), request.arguments(), tools);
                         emitter.next(AgentEvent.toolResult(request.name(), toolResult).toJson());
+                        sseFlushDelay();  // 确保 tool_result 事件单独 flush
                     } catch (Exception e) {
                         log.error("工具执行失败: {} - {}", request.name(), e.getMessage());
                         toolResult = "工具执行错误: " + e.getMessage();
                         emitter.next(AgentEvent.toolResult(request.name(), toolResult).toJson());
+                        sseFlushDelay();  // 错误情况的 tool_result 也要 flush
                     }
 
                     // 将工具执行结果加入对话历史
@@ -426,6 +433,7 @@ public class AgentServiceImpl implements AgentService {
             // 没有工具调用 → 这是最终回答
             String answer = aiMessage.text();
             emitter.next(AgentEvent.thinking("正在生成最终回答...").toJson());
+            sseFlushDelay();  // 确保最后的 thinking 事件 flush
 
             // 将 AI 的回答加入对话历史
             messages.add(aiMessage);
@@ -438,6 +446,7 @@ public class AgentServiceImpl implements AgentService {
         // 达到最大迭代次数 → 强制要求 LLM 给出最终答案
         log.warn("Agent 达到最大迭代次数 {}，强制生成最终答案", MAX_AGENT_ITERATIONS);
         emitter.next(AgentEvent.thinking("分析完成，正在整理回答...").toJson());
+        sseFlushDelay();  // 确保最大迭代次数的 thinking 事件 flush
 
         messages.add(UserMessage.from("请基于以上所有信息，直接给出最终回答。不要再调用工具。"));
         try {
@@ -495,6 +504,23 @@ public class AgentServiceImpl implements AgentService {
             return response.aiMessage().text();
         } catch (Exception e) {
             return "抱歉，AI 服务暂时不可用。请稍后重试或尝试更简单的提问方式。";
+        }
+    }
+
+    /**
+     * SSE 事件间微小延迟 — 确保每个事件被单独 flush 到客户端
+     * <p>
+     * 后端同步代码中多个 {@code emitter.next()} 连续调用可能被 Reactor/Netty
+     * 缓冲区合并，导致前端同时收到多个事件，推理步骤"一下子蹦出"。
+     * 插入 350ms 延迟可确保每个事件被独立 flush，配合前端动画队列形成
+     * 清晰的"逐步推理"视觉效果。
+     * </p>
+     */
+    private void sseFlushDelay() {
+        try {
+            Thread.sleep(800);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -802,13 +828,33 @@ public class AgentServiceImpl implements AgentService {
         return message.length() > 30 ? message.substring(0, 30) + "..." : message;
     }
 
+    /**
+     * 保存对话消息并更新会话时间戳
+     * <p>
+     * 每次保存消息时同步更新 {@code chat_conversation.updated_at}，
+     * 确保侧边栏的对话列表按最近活跃时间正确排序。
+     * </p>
+     * <p>
+     * 问题背景：之前只插入消息而不更新会话表，导致 {@code updated_at}
+     * 停留在首次创建/首次回复时，Agent 与非 Agent 消息混合的会话排序异常。
+     * </p>
+     */
     private void saveMessage(Long conversationId, String role, String content) {
         ChatMessage msg = new ChatMessage();
         msg.setConversationId(conversationId);
         msg.setRole(role);
         msg.setContent(content);
-        msg.setCreatedAt(LocalDateTime.now());
+        // 不显式设置 created_at：让 MySQL 的 DEFAULT CURRENT_TIMESTAMP 统一处理，
+        // 避免 Java 容器时区（可能为 UTC）与 MySQL 时区（Asia/Shanghai）不一致
+        // 导致 Agent 消息与非 Agent 消息的 created_at 相差 8 小时、排序错乱。
         messageMapper.insert(msg);
+
+        // 同步更新会话的 updated_at（使用 MySQL CURRENT_TIMESTAMP 避免时区偏差）
+        com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ChatConversation> updateWrapper =
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<>();
+        updateWrapper.eq(ChatConversation::getId, conversationId)
+                .setSql("updated_at = CURRENT_TIMESTAMP");
+        conversationMapper.update(null, updateWrapper);
     }
 
     private void updateTitleIfFirstMessage(Long conversationId, String aiResponse) {
@@ -976,6 +1022,7 @@ public class AgentServiceImpl implements AgentService {
             log.error("多 Agent 编排异常，降级为标准 Agent 模式: {}", e.getMessage(), e);
             emitter.next(AgentEvent.thinking(
                     "多 Agent 编排异常，降级为标准模式...").toJson());
+            sseFlushDelay();
 
             // 降级：使用标准 Agent 推理循环
             try {

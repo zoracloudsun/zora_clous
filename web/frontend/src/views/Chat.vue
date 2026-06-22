@@ -336,36 +336,43 @@
               </button>
               <Transition name="reasoning-panel">
                 <div v-if="showReasoning" class="reasoning-steps-inline">
-                  <div
-                    v-for="(step, idx) in reasoningSteps"
-                    :key="idx"
-                    class="reasoning-step"
-                    :class="'step-' + step.type"
-                  >
-                    <template v-if="step.type === 'thinking'">
-                      <span class="step-icon step-icon-think">
-                        <el-icon :size="12"><Loading /></el-icon>
-                      </span>
-                      <span class="step-text">{{ step.content }}</span>
-                    </template>
-                    <template v-else-if="step.type === 'tool_call'">
-                      <span class="step-icon step-icon-tool">
-                        <el-icon :size="12"><Tools /></el-icon>
-                      </span>
-                      <span class="step-label">调用工具：</span>
-                      <span class="step-tool-name">{{ step.tool }}</span>
-                      <span class="step-args" v-if="step.args && Object.keys(step.args).length">
-                        <code>{{ formatToolArgs(step.args) }}</code>
-                      </span>
-                    </template>
-                    <template v-else-if="step.type === 'tool_result'">
-                      <span class="step-icon step-icon-result">
-                        <el-icon :size="12"><CircleCheck /></el-icon>
-                      </span>
-                      <span class="step-label">工具返回：</span>
-                      <span class="step-result-text">{{ formatToolResult(step.content) }}</span>
-                    </template>
-                  </div>
+                  <!--
+                    TransitionGroup: 即使所有步骤同时 push 到数组，
+                    CSS transition-delay 会根据 idx 递增，让步骤逐个"飞入"。
+                  -->
+                  <TransitionGroup name="step-anim" tag="div">
+                    <div
+                      v-for="(step, idx) in reasoningSteps"
+                      :key="step.ts + '-' + idx"
+                      class="reasoning-step"
+                      :class="'step-' + step.type"
+                      :style="{ transitionDelay: (idx * STEP_STAGGER_MS) + 'ms' }"
+                    >
+                      <template v-if="step.type === 'thinking'">
+                        <span class="step-icon step-icon-think">
+                          <el-icon :size="12"><Loading /></el-icon>
+                        </span>
+                        <span class="step-text">{{ step.content }}</span>
+                      </template>
+                      <template v-else-if="step.type === 'tool_call'">
+                        <span class="step-icon step-icon-tool">
+                          <el-icon :size="12"><Tools /></el-icon>
+                        </span>
+                        <span class="step-label">调用工具：</span>
+                        <span class="step-tool-name">{{ step.tool }}</span>
+                        <span class="step-args" v-if="step.args && Object.keys(step.args).length">
+                          <code>{{ formatToolArgs(step.args) }}</code>
+                        </span>
+                      </template>
+                      <template v-else-if="step.type === 'tool_result'">
+                        <span class="step-icon step-icon-result">
+                          <el-icon :size="12"><CircleCheck /></el-icon>
+                        </span>
+                        <span class="step-label">工具返回：</span>
+                        <span class="step-result-text">{{ formatToolResult(step.content) }}</span>
+                      </template>
+                    </div>
+                  </TransitionGroup>
                 </div>
               </Transition>
             </div>
@@ -488,6 +495,19 @@ const selectedKbId = ref(null)
 const agentMode = ref(false)          // Agent 模式开关
 const reasoningSteps = ref([])        // 推理步骤数组 [{type, content/tool/args, ts}]
 const showReasoning = ref(true)       // 推理面板展开/折叠
+
+/**
+ * 推理步骤渲染队列 —— SSE 事件先入队，setInterval 每 800ms 出队一个
+ *
+ * 核心原理：setInterval 的回调是独立的宏任务，每次 push 触发独立的 Vue 渲染周期。
+ * 无论 SSE 事件是瞬间全部到达还是分散到达，前端都以固定 800ms 节奏逐个显示。
+ */
+let pendingSteps = []
+let stepTimer = null
+let pendingTokens = []
+let answerRevealed = false
+let streamEnded = false      // SSE 流是否已结束（onDone 已到达）
+let doneConversationId = null // onDone 传来的 conversationId，interval 收尾时用
 
 // 回收站状态
 const showTrash = ref(false)
@@ -761,6 +781,7 @@ const handleSend = async (e) => {
   streamingContent.value = ''
   // Phase 3.3: 清空上一轮的推理步骤
   reasoningSteps.value = []
+  stopStepTimer()
   showReasoning.value = true
   messages.value.push({ role: 'user', content: msg })
   await scrollToBottom()
@@ -769,54 +790,40 @@ const handleSend = async (e) => {
 
   // ==================== Phase 3.3: Agent 模式 — 结构化 SSE 流式对话 ====================
   if (agentMode.value) {
+    startStepTimer()
     abortController = streamAgentChat(
       msg, convId,
-      // onThinking: Agent 思考过程
+      // onThinking → 入队，由 setInterval 每 800ms 出队一个
       (content) => {
-        reasoningSteps.value.push({ type: 'thinking', content, ts: Date.now() })
-        scrollToBottom()
+        pendingSteps.push({ type: 'thinking', content, ts: Date.now() })
       },
-      // onToolCall: Agent 调用工具
+      // onToolCall → 入队
       (tool, args) => {
-        reasoningSteps.value.push({ type: 'tool_call', tool, args, ts: Date.now() })
-        scrollToBottom()
+        pendingSteps.push({ type: 'tool_call', tool, args, ts: Date.now() })
       },
-      // onToolResult: 工具执行完毕
+      // onToolResult → 入队
       (tool, content) => {
-        reasoningSteps.value.push({ type: 'tool_result', tool, content, ts: Date.now() })
-        scrollToBottom()
+        pendingSteps.push({ type: 'tool_result', tool, content, ts: Date.now() })
       },
-      // onToken: 最终回答 token
+      // onToken → 推理未完成时缓存，完成后直接输出
       (token) => {
-        streamingContent.value += token
-        scrollToBottom()
-      },
-      // onDone: 对话完成
-      async (conversationId) => {
-        if (streamingContent.value) {
-          messages.value.push({
-            role: 'assistant',
-            content: streamingContent.value,
-            // 保存推理步骤到消息对象，支持后续展开/收起
-            reasoningSteps: reasoningSteps.value.length > 0 ? [...reasoningSteps.value] : null,
-            showReasoning: false,
-          })
-        }
-        streamingContent.value = ''
-        isStreaming.value = false
-        abortController = null
-        if (!currentConversationId.value) {
-          await loadConversations()
-          if (conversations.value.length > 0) {
-            currentConversationId.value = conversations.value[0].id
-          }
+        if (answerRevealed) {
+          streamingContent.value += token
+          scrollToBottom()
         } else {
-          await loadConversations()
+          pendingTokens.push(token)
         }
-        await scrollToBottom()
       },
-      // onError: 出错
+      // onDone → 只标记流结束，所有收尾由 interval 在队列空后处理
+      async (conversationId) => {
+        streamEnded = true
+        // 收尾工作交给 interval：等 pendingSteps 清空 → flush token → push message → 刷新列表
+        // store conversationId for interval cleanup
+        doneConversationId = conversationId
+      },
+      // onError: 出错 → 停止定时器，刷出剩余
       (error) => {
+        stopStepTimer()
         ElMessage.error(error.message || 'AI 请求失败')
         if (streamingContent.value) {
           messages.value.push({ role: 'assistant', content: streamingContent.value + '\n\n*[回复中断]*' })
@@ -872,6 +879,7 @@ const handleSend = async (e) => {
 const handleStop = () => {
   if (abortController) {
     abortController.abort()
+    stopStepTimer()
     if (streamingContent.value) {
       messages.value.push({ role: 'assistant', content: streamingContent.value + '\n\n*[已停止生成]*' })
     }
@@ -896,6 +904,79 @@ const scrollToBottom = async () => {
   }
 }
 
+/**
+ * 启动推理步骤定时渲染器
+ * setInterval 每 800ms 从队列取出一个步骤 push 到 reasoningSteps。
+ * setInterval 回调是独立宏任务 → 每次 push 触发独立 Vue 渲染 → 动画单独播放。
+ */
+function startStepTimer() {
+  pendingSteps = []
+  pendingTokens = []
+  answerRevealed = false
+  streamEnded = false
+  doneConversationId = null
+
+  stepTimer = setInterval(() => {
+    if (pendingSteps.length > 0) {
+      // 还有推理步骤没渲染 → 弹出一个，Vue 触发动画
+      const step = pendingSteps.shift()
+      reasoningSteps.value.push(step)
+      scrollToBottom()
+    } else if (streamEnded) {
+      // 流已结束 + 推理队列已空 → flush token → push 消息 → 收尾
+      clearInterval(stepTimer)
+      stepTimer = null
+      if (!answerRevealed) {
+        answerRevealed = true
+        if (pendingTokens.length > 0) {
+          streamingContent.value += pendingTokens.join('')
+          pendingTokens = []
+        }
+      }
+      if (streamingContent.value) {
+        messages.value.push({
+          role: 'assistant',
+          content: streamingContent.value,
+          reasoningSteps: reasoningSteps.value.length > 0 ? [...reasoningSteps.value] : null,
+          showReasoning: false,
+        })
+      }
+      streamingContent.value = ''
+      isStreaming.value = false
+      abortController = null
+      scrollToBottom()
+      loadConversations().then(() => {
+        if (!currentConversationId.value && conversations.value.length > 0) {
+          currentConversationId.value = conversations.value[0].id
+        }
+      })
+    }
+    // 流未结束 + 队列空 → 继续等下一个 interval tick
+  }, 800)
+}
+
+/**
+ * 紧急停止：错误/手动中断时用，立即刷出一切
+ */
+function stopStepTimer() {
+  if (stepTimer) {
+    clearInterval(stepTimer)
+    stepTimer = null
+  }
+  if (pendingSteps.length > 0) {
+    reasoningSteps.value.push(...pendingSteps)
+    pendingSteps = []
+  }
+  if (!answerRevealed) {
+    answerRevealed = true
+    if (pendingTokens.length > 0) {
+      streamingContent.value += pendingTokens.join('')
+      pendingTokens = []
+    }
+  }
+  scrollToBottom()
+}
+
 const copyContent = (text) => {
   navigator.clipboard.writeText(text).then(() => {
     ElMessage.success('已复制')
@@ -904,6 +985,9 @@ const copyContent = (text) => {
 
 // ==================== Phase 3.3: Agent 推理面板工具函数 ====================
 
+/**
+ * 启动推理步骤逐帧动画渲染器
+ * <p>
 /**
  * 格式化工具调用参数为简洁的字符串显示
  * <p>
@@ -1762,6 +1846,32 @@ onMounted(() => { loadConversations(); loadKbs() })
   margin-bottom: 8px;
 }
 
+/* TransitionGroup: step-anim — 逐个飞入动画 */
+.step-anim-enter-active {
+  transition: all 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.step-anim-leave-active {
+  transition: all 0.25s ease-in;
+}
+.step-anim-enter-from {
+  opacity: 0;
+  transform: translateX(-40px);
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-left-width: 0;
+}
+.step-anim-enter-to {
+  opacity: 1;
+  transform: translateX(0);
+  max-height: 60px;
+}
+.step-anim-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
 /* 展开/收起按钮 */
 .reasoning-toggle {
   display: flex;
@@ -1789,7 +1899,7 @@ onMounted(() => { loadConversations(); loadKbs() })
 /* 推理步骤列表（内联） */
 .reasoning-steps-inline {
   padding: 6px 0 2px;
-  max-height: 200px;
+  /* max-height: 200px; */
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #d0d0d4 transparent;
@@ -1800,7 +1910,7 @@ onMounted(() => { loadConversations(); loadKbs() })
   border-radius: 4px;
 }
 
-/* 推理步骤项 */
+/* 推理步骤项 — 基础样式（动画由 TransitionGroup step-anim 控制） */
 .reasoning-step {
   display: flex;
   align-items: flex-start;
@@ -1811,11 +1921,7 @@ onMounted(() => { loadConversations(); loadKbs() })
   border-left: 3px solid transparent;
   font-size: 12px;
   line-height: 1.5;
-  animation: step-enter 0.25s ease-out;
-}
-@keyframes step-enter {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  overflow: hidden;
 }
 
 /* 步骤色彩编码 */
@@ -1848,9 +1954,19 @@ onMounted(() => { loadConversations(); loadKbs() })
 .step-icon-result { background: #d1fae5; color: #10b981; }
 
 /* 流式推理中的图标动画（完成后通过 .reasoning-done 停止） */
-.reasoning-steps-inline:not(.reasoning-done) .step-icon-think { animation: spin 1.2s linear infinite; }
-.reasoning-steps-inline:not(.reasoning-done) .step-icon-tool  { animation: pulse 1.5s ease-in-out infinite; }
-.reasoning-steps-inline:not(.reasoning-done) .step-icon-result { animation: pop-in 0.3s ease-out; }
+.reasoning-steps-inline:not(.reasoning-done) .step-icon-think {
+  animation: spin 1s linear infinite;
+}
+.reasoning-steps-inline:not(.reasoning-done) .step-icon-tool {
+  animation: pulse-glow 1.2s ease-in-out infinite;
+}
+.reasoning-steps-inline:not(.reasoning-done) .step-icon-result {
+  animation: pop-in 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+/* 已完成步骤的图标增加淡入效果 */
+.reasoning-steps-inline.reasoning-done .step-icon-result {
+  animation: pop-in 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
 
 .step-text {
   color: #3c3c3e;
@@ -1914,13 +2030,18 @@ onMounted(() => { loadConversations(); loadKbs() })
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+@keyframes pulse-glow {
+  0%, 100% { transform: scale(1);   opacity: 1;   box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  50%      { transform: scale(1.2); opacity: 0.85; box-shadow: 0 0 8px 2px rgba(245, 158, 11, 0.4); }
+}
 @keyframes pulse {
   0%, 100% { transform: scale(1); opacity: 1; }
   50%      { transform: scale(1.15); opacity: 0.8; }
 }
 @keyframes pop-in {
-  from { transform: scale(0.5); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 /* Agent 思考中占位文本 */

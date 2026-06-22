@@ -8,6 +8,7 @@ import com.zora.exception.BadRequestException;
 import com.zora.exception.ForbiddenException;
 import com.zora.exception.NotFoundException;
 import com.zora.exception.RateLimitException;
+import com.zora.entity.ChatConversation;
 import com.zora.mapper.ChatConversationMapper;
 import com.zora.mapper.ChatMessageMapper;
 import com.zora.mapper.UserMapper;
@@ -634,9 +635,24 @@ public class AiChatServiceImpl implements AiChatService {
      * @param role           消息角色（"user" / "assistant" / "system"）
      * @param content        消息内容
      */
+    /**
+     * 保存对话消息并更新会话时间戳
+     * <p>
+     * 每次保存消息时同步更新 {@code chat_conversation.updated_at}，
+     * 确保侧边栏的对话列表按最近活跃时间正确排序。
+     * 与 {@link com.zora.agent.impl.AgentServiceImpl#saveMessage} 保持一致的逻辑。
+     * </p>
+     */
     private void saveMessage(Long conversationId, String role, String content) {
         ChatMessage message = new ChatMessage(conversationId, role, content);
         messageMapper.insert(message);
+
+        // 同步更新会话的 updated_at（使用 MySQL CURRENT_TIMESTAMP 避免时区偏差）
+        com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ChatConversation> updateWrapper =
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<>();
+        updateWrapper.eq(ChatConversation::getId, conversationId)
+                .setSql("updated_at = CURRENT_TIMESTAMP");
+        conversationMapper.update(null, updateWrapper);
     }
 
     /**

@@ -35,6 +35,8 @@ public class Knife4jConfig {
                                 - **邮箱找回密码**：验证码重置密码、踢掉所有设备
                                 - **RBAC 角色权限**：user/admin 双角色、管理员用户管理
                                 - **AI 对话**：基于 DeepSeek 的 SSE 流式对话、会话管理、回收站
+                                - **RAG 知识库**：文档上传、向量检索、知识库增强对话
+                                - **AI Agent 智能体**：Tool Calling 工具调用、多轮推理、多 Agent 协作
 
                                 ## 鉴权说明
                                 登录成功后获取 accessToken，在右上角 **Authorize** 按钮填入即可调试所有接口。
