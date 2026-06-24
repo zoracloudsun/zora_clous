@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import com.zora.service.AiChatService;
+import com.zora.exception.BadRequestException;
 import com.zora.utils.ResponseUtil;
 
 import reactor.core.publisher.Flux;
@@ -123,6 +124,73 @@ public class AiChatController {
         String email = (String) request.getAttribute("userEmail");
         chatService.permanentDeleteConversation(email, id);
         return ResponseUtil.success(null, "已永久删除");
+    }
+
+    // ==================== 批量操作 ====================
+
+    /** 批量操作最大 ID 数量（防止一次性操作过多） */
+    private static final int MAX_BATCH_SIZE = 50;
+
+    @Operation(summary = "批量删除对话（移至回收站）", description = "将多个对话及其消息一次性移至回收站。请求体传入 IDs 数组，单个失败不影响其他。最多 50 个。")
+    @PostMapping("/conversations/batch-delete")
+    public ResponseUtil batchDeleteConversations(
+            @RequestBody Map<String, Object> body,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true) HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        List<Long> ids = parseIdList(body);
+        int count = chatService.batchDeleteConversations(email, ids);
+        return ResponseUtil.success("成功删除 " + count + " 个对话", count);
+    }
+
+    @Operation(summary = "批量恢复已删除对话", description = "将回收站中的多个对话一次性恢复到正常状态。请求体传入 IDs 数组。最多 50 个。")
+    @PostMapping("/conversations/batch-restore")
+    public ResponseUtil batchRestoreConversations(
+            @RequestBody Map<String, Object> body,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true) HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        List<Long> ids = parseIdList(body);
+        int count = chatService.batchRestoreConversations(email, ids);
+        return ResponseUtil.success("成功恢复 " + count + " 个对话", count);
+    }
+
+    @Operation(summary = "批量永久删除对话", description = "从回收站中批量永久删除多个对话及其所有消息，此操作不可撤销。请求体传入 IDs 数组。最多 50 个。")
+    @PostMapping("/conversations/batch-permanent-delete")
+    public ResponseUtil batchPermanentDeleteConversations(
+            @RequestBody Map<String, Object> body,
+            @Parameter(description = "当前登录用户（由 LoginInterceptor 自动注入）", hidden = true) HttpServletRequest request) {
+        String email = (String) request.getAttribute("userEmail");
+        List<Long> ids = parseIdList(body);
+        int count = chatService.batchPermanentDeleteConversations(email, ids);
+        return ResponseUtil.success("成功永久删除 " + count + " 个对话", count);
+    }
+
+    /**
+     * 从请求体中解析 ID 列表
+     * <p>
+     * 校验 ids 字段非空且不超过 {@link #MAX_BATCH_SIZE} 个。
+     * 支持 JSON 中传入整数或字符串形式的 ID（统一转为 Long）。
+     * </p>
+     *
+     * @param body 请求体 Map
+     * @return 解析后的 Long ID 列表
+     * @throws BadRequestException ids 为空或超过上限
+     */
+    @SuppressWarnings("unchecked")
+    private List<Long> parseIdList(Map<String, Object> body) {
+        Object idsObj = body.get("ids");
+        if (!(idsObj instanceof List)) {
+            throw new BadRequestException("ids 不能为空");
+        }
+        List<?> rawList = (List<?>) idsObj;
+        if (rawList.isEmpty()) {
+            throw new BadRequestException("ids 不能为空");
+        }
+        if (rawList.size() > MAX_BATCH_SIZE) {
+            throw new BadRequestException("单次批量操作最多 " + MAX_BATCH_SIZE + " 个");
+        }
+        return rawList.stream()
+                .map(o -> Long.valueOf(o.toString()))
+                .collect(java.util.stream.Collectors.toList());
     }
 
     // ==================== Phase 2: RAG 增强对话 ====================

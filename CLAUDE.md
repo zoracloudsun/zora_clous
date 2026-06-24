@@ -161,9 +161,9 @@ springboot/src/main/java/com/zora/
 │       ├── MathAgent.java                 #     数学计算专家（MathTool）
 │       ├── CodeAgent.java                 #     代码执行专家（CodeExecutionTool）
 │       └── AgentGraph.java                #     多 Agent 编排器（Supervisor + Summarizer）
-├── controller/                            # REST 控制器（4 个，33+ 端点）
+├── controller/                            # REST 控制器（4 个，36+ 端点）
 │   ├── UserController.java                #   用户认证（16 端点）
-│   ├── AiChatController.java              #   AI 对话 + SSE + RAG 对话
+│   ├── AiChatController.java              #   AI 对话 + SSE + RAG 对话 + 批量操作（3 新增）
 │   ├── AgentController.java               #   Agent 智能体 SSE 流式对话（Phase 3）
 │   └── RagController.java                 #   RAG 知识库 CRUD（16 端点）
 ├── service/                               # 业务逻辑层
@@ -499,6 +499,16 @@ Agent 在 Phase 1 流式对话的基础上，增加了工具调用（Tool Callin
 | POST | `/agent/chat/stream` | Agent SSE 流式对话（支持工具调用） |
 
 All `/agent/**` endpoints require login (same as `/ai/**` — intercepted by `LoginInterceptor`).
+
+### New API Endpoints (/ai/conversations/batch-*) — 批量操作
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/ai/conversations/batch-delete` | 批量软删除对话（移至回收站） |
+| POST | `/ai/conversations/batch-restore` | 批量恢复已删除对话 |
+| POST | `/ai/conversations/batch-permanent-delete` | 批量永久删除对话 |
+
+请求体：`{ "ids": [1, 2, 3] }`，单次最多 50 个。遍历每个 ID 执行操作，单个失败不中断后续。
 
 ### Key Backend Files
 

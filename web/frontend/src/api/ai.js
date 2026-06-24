@@ -38,6 +38,23 @@ export function permanentDeleteConversation(id) {
   return request.delete(`/ai/conversations/${id}/permanent`)
 }
 
+// ==================== 批量操作 ====================
+
+/** 批量删除对话（移至回收站） */
+export function batchDeleteConversations(ids) {
+  return request.post('/ai/conversations/batch-delete', { ids })
+}
+
+/** 批量恢复已删除的对话 */
+export function batchRestoreConversations(ids) {
+  return request.post('/ai/conversations/batch-restore', { ids })
+}
+
+/** 批量永久删除对话 */
+export function batchPermanentDeleteConversations(ids) {
+  return request.post('/ai/conversations/batch-permanent-delete', { ids })
+}
+
 /**
  * SSE 流式对话
  * 使用原生 fetch 实现（Axios 不支持 SSE 流式读取），

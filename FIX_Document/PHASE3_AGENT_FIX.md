@@ -512,27 +512,73 @@ AI 返回的 LaTeX 数学公式（如 `\begin{aligned}...\end{aligned}`）以原
 
 ---
 
-## P3-10：CJK 字符旁的加粗语法不生效
+## P3-10：CJK 字符旁的加粗语法不生效（含引号混合边界）
 
 ### 问题描述
 
-中文字符紧跟 `**` 时加粗不生效：`符合**加粗**的条件` 显示为原始 `**` 标记。
+中文字符紧跟 `**` 时加粗不生效：
 
-### 根因分析
+| 文本 | 期望 | 实际 |
+| :--- | :--- | :--- |
+| `符合**加粗**的条件` | 符合**加粗**的条件 | 符合**加粗**的条件（原样） |
+| `核心输出方式：**蓄力重击 → 释放"冰冻激光"**，类似...` | 加粗生效 | **不加粗**（`**` 作为字面量显示） |
 
-Marked v18 使用 GFM 规范解析加粗。GFM 的 left-flanking delimiter run 规则要求 `**` 前面不能紧接 CJK 字符。
+### 根因分析（两层）
+
+**第一层 — GFM left-flanking delimiter run 规则**：
+
+Marked v18 遵循 GFM 规范，要求 opening `**` 前面必须是空白或 ASCII 标点。CJK 字符（中文、全角标点）不在此列，导致 `**` 不被识别为加粗起始符。
+
+**第二层 — 第二个 replace 画蛇添足（本次修复的根因）**：
+
+初版 `fixCjkBold()` 有两个 replace：
+1. 在 CJK 字符 **后面**的 `**` 前插入 ZWS → 修复 opening delimiter ✅
+2. 在 `**` **后面**的 CJK 字符前插入 ZWS → 修复 closing delimiter ❌（反而破坏了它）
+
+第二个 replace 在 **closing `**` 之后**插入零宽空格（U+200B），但 **U+200B 属于 Unicode 类别 "Zs"（Space Separator）**。GFM 规范要求 closing delimiter 必须是 left-flanking——前面不能是空格字符。ZWS 虽然是"零宽"，但 Unicode 属性上是空格，导致 marked 把 closing `**` 当成普通文本。
+
+字符级分析：
+
+```
+原始: ...光" * * ff0c(，)...
+      第二个 replace 在 closing ** 后插入 ZWS →
+修复后: ...光" * * 200b(​) ff0c(，)...
+                 ↑ ZWS 破坏了 closing ** 的 left-flanking 要求
+```
+
+验证对照：
+
+| 方案 | `**蓄力重击 → "冰冻激光"**，类似...` | 结果 |
+| :--- | :--- | :---: |
+| 不用 fixCjkBold | 原始文本直接给 marked | ✅ 加粗正常 |
+| 只用第一个 replace | ZWS 只在 opening `**` 前 | ✅ 加粗正常 |
+| 只用第二个 replace | ZWS 在 closing `**` 后 | ❌ 加粗失效 |
+| 两个都用（旧版） | ZWS 两头都有 | ❌ 加粗失效 |
 
 ### 修复实现
 
-`fixCjkBold()` 函数在 CJK 字符与 `**` 之间插入零宽空格（U+200B）：
+删除第二个 replace，只保留第一个（在 opening `**` 前插入 ZWS 帮助 marked 识别 CJK 旁的加粗起始符）：
+
+**文件**：[Chat.vue](web/frontend/src/views/Chat.vue)
 
 ```javascript
 function fixCjkBold(text) {
-  return text
-    .replace(/([一-鿿　-〿＀-￯])(\*\*)/g, '$1​$2')
-    .replace(/(\*\*)([一-鿿　-〿＀-￯])/g, '$1​$2')
+  // CJK 字符范围：一-鿿 (基本) + 　-〿 (标点) + ＀-￯ (全角)
+  // 只在 opening ** 前插入零宽空格，帮助 marked 识别 CJK 旁的 ** 为加粗起始符。
+  // ⚠️ 不能在 closing ** 后插入 ZWS——U+200B 属于 Unicode Space Separator，
+  //    会破坏 GFM 的 left-flanking delimiter run 要求，导致加粗失效。
+  return text.replace(/([一-鿿　-〿＀-￯])(\*\*)/g, '$1​$2')
 }
 ```
+
+### GFM delimiter run 规则（便于理解）
+
+| delimiter 类型 | 要求 | 影响 |
+| :--- | :--- | :--- |
+| opening `**` | right-flanking（后面不能是空格） | CJK 字符在前导致不被识别 → **第一个 replace 在前插入 ZWS** ✅ |
+| closing `**` | left-flanking（前面不能是空格） | ZWS 在后导致不被识别 → **不能在 closing 后插入 ZWS** ❌ |
+
+**核心教训**：零宽空格 (U+200B) 虽然视觉上不可见，但在 Unicode 规范中属于 Space Separator 类别，会被 GFM 解析器当作空格处理。它只能在 opening delimiter **前面**使用（前加 ZWS 不破坏 right-flanking），不能在 closing delimiter **后面**使用（后加 ZWS 破坏 left-flanking）。
 
 ---
 

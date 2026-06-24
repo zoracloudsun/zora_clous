@@ -571,6 +571,86 @@ public class AiChatServiceImpl implements AiChatService {
         return deletedCount;
     }
 
+    // ==================== 批量操作 ====================
+
+    /**
+     * 批量软删除对话
+     * <p>
+     * 遍历每个 ID 调用 {@link #deleteConversation}，单个失败记录 warn 日志并跳过，
+     * 不中断后续 ID 的处理。返回成功删除的对话数量。
+     * </p>
+     *
+     * @param email 当前用户邮箱
+     * @param ids   要删除的对话 ID 列表
+     * @return 成功删除的对话数量
+     */
+    @Override
+    public int batchDeleteConversations(String email, List<Long> ids) {
+        int successCount = 0;
+        for (Long id : ids) {
+            try {
+                deleteConversation(email, id);
+                successCount++;
+            } catch (Exception e) {
+                log.warn("批量删除对话失败: id={}, error={}", id, e.getMessage());
+            }
+        }
+        log.info("批量删除对话完成: 成功 {}/{} 个, user={}", successCount, ids.size(), email);
+        return successCount;
+    }
+
+    /**
+     * 批量恢复已软删除的对话
+     * <p>
+     * 遍历每个 ID 调用 {@link #restoreConversation}，单个失败记录 warn 日志并跳过，
+     * 不中断后续 ID 的处理。返回成功恢复的对话数量。
+     * </p>
+     *
+     * @param email 当前用户邮箱
+     * @param ids   要恢复的对话 ID 列表
+     * @return 成功恢复的对话数量
+     */
+    @Override
+    public int batchRestoreConversations(String email, List<Long> ids) {
+        int successCount = 0;
+        for (Long id : ids) {
+            try {
+                restoreConversation(email, id);
+                successCount++;
+            } catch (Exception e) {
+                log.warn("批量恢复对话失败: id={}, error={}", id, e.getMessage());
+            }
+        }
+        log.info("批量恢复对话完成: 成功 {}/{} 个, user={}", successCount, ids.size(), email);
+        return successCount;
+    }
+
+    /**
+     * 批量永久删除对话
+     * <p>
+     * 遍历每个 ID 调用 {@link #permanentDeleteConversation}，单个失败记录 warn 日志并跳过，
+     * 不中断后续 ID 的处理。返回成功永久删除的对话数量。
+     * </p>
+     *
+     * @param email 当前用户邮箱
+     * @param ids   要永久删除的对话 ID 列表
+     * @return 成功永久删除的对话数量
+     */
+    @Override
+    public int batchPermanentDeleteConversations(String email, List<Long> ids) {
+        int successCount = 0;
+        for (Long id : ids) {
+            try {
+                permanentDeleteConversation(email, id);
+                successCount++;
+            } catch (Exception e) {
+                log.warn("批量永久删除对话失败: id={}, error={}", id, e.getMessage());
+            }
+        }
+        log.info("批量永久删除对话完成: 成功 {}/{} 个, user={}", successCount, ids.size(), email);
+        return successCount;
+    }
+
     // ==================== 私有辅助方法 ====================
 
     /**

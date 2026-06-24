@@ -45,4 +45,43 @@ public interface AiChatService {
 
     /** 定期清理：物理删除超过 30 天的软删除记录 */
     int cleanupOldDeletedConversations();
+
+    /**
+     * 批量软删除对话
+     * <p>
+     * 将多个对话及其消息一次性移至回收站。遍历每个 ID 执行单条软删除，
+     * 单个失败不中断后续操作，返回成功操作的数量。
+     * </p>
+     *
+     * @param email 当前用户邮箱
+     * @param ids   要删除的对话 ID 列表
+     * @return 成功删除的对话数量
+     */
+    int batchDeleteConversations(String email, List<Long> ids);
+
+    /**
+     * 批量恢复已软删除的对话
+     * <p>
+     * 将回收站中的多个对话一次性恢复到正常状态。
+     * 遍历每个 ID 执行单条恢复，单个失败不中断后续操作。
+     * </p>
+     *
+     * @param email 当前用户邮箱
+     * @param ids   要恢复的对话 ID 列表
+     * @return 成功恢复的对话数量
+     */
+    int batchRestoreConversations(String email, List<Long> ids);
+
+    /**
+     * 批量永久删除对话
+     * <p>
+     * 从回收站中永久删除多个对话及其所有消息，此操作不可撤销。
+     * 只允许永久删除已软删除的对话。遍历每个 ID 执行，单个失败不中断后续。
+     * </p>
+     *
+     * @param email 当前用户邮箱
+     * @param ids   要永久删除的对话 ID 列表
+     * @return 成功永久删除的对话数量
+     */
+    int batchPermanentDeleteConversations(String email, List<Long> ids);
 }
