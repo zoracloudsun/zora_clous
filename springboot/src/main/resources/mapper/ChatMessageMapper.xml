@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zora.mapper.ChatMessageMapper">
+
+    <!--
+        Phase 4 全文搜索：使用 MySQL FULLTEXT + ngram parser
+        搜索 chat_message.content，JOIN chat_conversation 获取标题
+        按相关性分数降序排列，仅搜索当前用户未删除的消息和对话
+    -->
+    <select id="fulltextSearch" resultType="com.zora.entity.SearchResult">
+        SELECT
+            m.id AS messageId,
+            m.conversation_id AS conversationId,
+            c.title AS conversationTitle,
+            m.role AS role,
+            m.content AS content,
+            MATCH(m.content) AGAINST(#{keyword} IN BOOLEAN MODE) AS relevanceScore,
+            m.created_at AS createdAt
+        FROM chat_message m
+        INNER JOIN chat_conversation c ON m.conversation_id = c.id
+        WHERE m.deleted_at IS NULL
+          AND c.deleted_at IS NULL
+          AND c.user_id = #{userId}
+          AND MATCH(m.content) AGAINST(#{keyword} IN BOOLEAN MODE)
+        ORDER BY relevanceScore DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="fulltextSearchCount" resultType="long">
+        SELECT COUNT(*)
+        FROM chat_message m
+        INNER JOIN chat_conversation c ON m.conversation_id = c.id
+        WHERE m.deleted_at IS NULL
+          AND c.deleted_at IS NULL
+          AND c.user_id = #{userId}
+          AND MATCH(m.content) AGAINST(#{keyword} IN BOOLEAN MODE)
+    </select>
+
+    <!--
+        Phase 4 数据统计：按天统计消息数量（最近 N 天）
+        按 role 分组，用于仪表盘消息趋势折线图
+    -->
+    <select id="countMessagesByDay" resultType="java.util.HashMap">
+        SELECT
+            DATE(m.created_at) AS date,
+            m.role AS role,
+            COUNT(*) AS count
+        FROM chat_message m
+        INNER JOIN chat_conversation c ON m.conversation_id = c.id
+        WHERE c.user_id = #{userId}
+          AND m.deleted_at IS NULL
+          AND c.deleted_at IS NULL
+          AND m.created_at >= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+        GROUP BY DATE(m.created_at), m.role
+        ORDER BY date ASC
+    </select>
+
+    <!--
+        Phase 4 数据统计：按小时统计消息数量（最近 90 天）
+        用于仪表盘活跃时段热力图
+    -->
+    <select id="countMessagesByHour" resultType="java.util.HashMap">
+        SELECT
+            HOUR(m.created_at) AS hour,
+            COUNT(*) AS count
+        FROM chat_message m
+        INNER JOIN chat_conversation c ON m.conversation_id = c.id
+        WHERE c.user_id = #{userId}
+          AND m.deleted_at IS NULL
+          AND c.deleted_at IS NULL
+          AND m.created_at >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+        GROUP BY HOUR(m.created_at)
+        ORDER BY hour ASC
+    </select>
+
+    <!--
+        Phase 4 数据统计：统计用户每种角色的消息总数
+        用于仪表盘消息角色占比饼图
+    -->
+    <select id="countMessagesByRole" resultType="java.util.HashMap">
+        SELECT
+            m.role AS role,
+            COUNT(*) AS count
+        FROM chat_message m
+        INNER JOIN chat_conversation c ON m.conversation_id = c.id
+        WHERE c.user_id = #{userId}
+          AND m.deleted_at IS NULL
+          AND c.deleted_at IS NULL
+        GROUP BY m.role
+    </select>
+
+</mapper>

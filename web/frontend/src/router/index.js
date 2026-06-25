@@ -48,6 +48,18 @@ const routes = [
     component: () => import('@/views/KnowledgeBase.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/search',
+    name: 'Search',
+    component: () => import('@/views/Search.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: () => import('@/views/Dashboard.vue'),
+    meta: { requiresAuth: true },
+  },
 ]
 
 const router = createRouter({

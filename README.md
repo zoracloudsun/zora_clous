@@ -1,4 +1,4 @@
-# Spring Boot + Vue3 全栈项目：认证系统 + AI 智能对话 + RAG 知识库 + AI Agent 智能体
+# Spring Boot + Vue3 全栈项目：认证系统 + AI 智能对话 + RAG 知识库 + AI Agent 智能体 + 智能搜索与分析
 
 > 前后端分离的全栈项目 | 2026
 
@@ -9,7 +9,7 @@
 [![Redis](https://img.shields.io/badge/Redis-7.x-red)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)](https://www.docker.com/)
 [![LangChain4j](https://img.shields.io/badge/LangChain4j-1.15.0-00B265)](https://docs.langchain4j.dev/)
-[![DeepSeek](https://img.shields.io/badge/DeepSeek-V3-536DFE)](https://platform.deepseek.com/)
+[![DeepSeek](https://img.shields.io/badge/deepseek-v4-536DFE)](https://platform.deepseek.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 [![CI](https://github.com/zoracloudsun/zora_clous/actions/workflows/ci.yml/badge.svg)](https://github.com/zoracloudsun/zora_clous/actions/workflows/ci.yml)
 
@@ -17,17 +17,18 @@
 
 ## 项目简介
 
-一套**生产级**前后端分离的全栈项目，集成了完整的用户认证闭环、基于大模型的 AI 智能对话系统、RAG 知识库，以及具备工具调用和多 Agent 协作能力的 AI Agent 智能体。
+一套**生产级**前后端分离的全栈项目，集成了完整的用户认证闭环、基于大模型的 AI 智能对话系统、RAG 知识库，以及具备工具调用和多 Agent 协作能力的 AI Agent 智能体，支持智能搜索与分析。
 
 | 系统 | 说明 |
 |------|------|
 | 🔐 **用户认证系统** | 图形验证码、邮箱验证码注册、JWT 双 Token 鉴权、微信 OAuth 扫码登录、RBAC 角色权限控制、暴力破解防护 |
-| 🤖 **AI 智能对话** | DeepSeek-V3 大模型驱动、SSE 流式传输（打字机效果）、多轮上下文对话、Markdown + 代码高亮渲染、对话历史管理 |
+| 🤖 **AI 智能对话** | deepseek-v4 大模型驱动、SSE 流式传输（打字机效果）、多轮上下文对话、Markdown + 代码高亮渲染、对话历史管理 |
 | 📚 **RAG 知识库** | 文档上传 → 文本提取 → 分块 → Embedding 向量化 → 检索增强生成，让 AI 基于用户自己的文档回答 |
 | 🧠 **AI Agent 智能体** | LangChain4j Tool Calling 框架，AI 可自主调用工具（网页搜索/数学计算/代码执行），推理可视化面板，多 Agent 协作（Supervisor → 专家 → 聚合），长期记忆摘要 |
+| 🔍 **智能搜索与分析** | MySQL FULLTEXT 全文搜索（ngram 中文分词）+ ECharts 数据仪表盘 + 用户行为追踪 + 智能推荐 |
 
-- **后端**：Spring Boot 3.5.11 + MyBatis-Plus 3.5.12 + MySQL + Redis + LangChain4j 1.15.0 + Apache Tika + Tavily Search + exp4j + JJWT 0.12
-- **前端**：Vue 3.5 + Vite 8 + Element Plus 2.14 + Vue Router 4 + Axios + marked + highlight.js + DOMPurify
+- **后端**：Spring Boot 3.5.11 + MyBatis-Plus 3.5.12 + MySQL + Redis + LangChain4j 1.15.0 + Apache Tika + Tavily Search + exp4j + JJWT 0.12 + Spring AOP
+- **前端**：Vue 3.5 + Vite 8 + Element Plus 2.14 + Vue Router 4 + Axios + marked + highlight.js + DOMPurify + ECharts 6
 
 ---
 
@@ -51,7 +52,7 @@
 
 | 功能 | 说明 |
 |------|------|
-| 🤖 大模型驱动 | DeepSeek-V3，中英文对话、代码生成、数据分析 |
+| 🤖 大模型驱动 | deepseek-v4，中英文对话、代码生成、数据分析 |
 | 📡 SSE 流式传输 | 逐字输出，打字机效果，120秒超时支持长回复 |
 | 📝 Markdown 渲染 | 标题、列表、表格、引用、代码块（190+ 语言语法高亮） |
 | 🔒 XSS 安全过滤 | DOMPurify 过滤 AI 输出中的潜在恶意 HTML/JS |
@@ -84,6 +85,20 @@
 | 💾 长期记忆 | Redis ChatMemory 24h 缓存 + LLM 异步摘要生成（每 10 条消息触发），对话超窗口后仍能"记住"早期内容 |
 | 🛡️ 三层降级 | 多 Agent → 标准 Agent → 直接回答，任何异常都不会导致无回答 |
 | 🔒 安全防护 | 推理循环最多 5 次迭代 + 10 次/分钟限流 + 18 种 Prompt Injection 检测 |
+
+### 智能搜索与分析
+
+| 功能 | 说明 |
+|------|------|
+| 🔍 全文搜索 | MySQL 8 InnoDB FULLTEXT + ngram parser 中文分词，跨对话搜索消息内容 |
+| 🌐 搜索结果高亮 | Java 层关键词 `<mark>` 标签高亮，前端 DOMPurify 安全过滤 |
+| 📊 数据仪表盘 | ECharts 6 可视化图表：消息趋势、活跃时段、对话趋势、消息占比、功能排行 |
+| 📈 统计维度 | 总览摘要卡片 + 双线折线图（用户/AI 消息）+ 柱状图（活跃时段）+ 饼图（角色占比） |
+| 🔎 用户行为分析 | AOP 切面 + `@TrackAction` 注解 + `@Async` 异步日志写入，不阻塞主流程 |
+| 📝 行为追踪 | 6 种行为类型自动采集：对话创建、消息发送、搜索查询、KB 上传、KB 检索、Agent 调用 |
+| 💡 智能推荐 | 关键词提取 + MySQL FULLTEXT 匹配：相关对话、建议问题、热门知识库 |
+| ⚡ Redis 缓存 | 统计数据 TTL 分级缓存（30min~4h）+ 推荐缓存 30min |
+| 🎨 推荐卡片 | Chat 侧边栏嵌入 RecommendCard，3 个 Tab 展示相关对话/问题/知识库 |
 
 ---
 
@@ -261,7 +276,7 @@ npm run dev
 
 ```bash
 cd springboot
-mvn test   # 371 个测试，~20 秒
+mvn test   # 403 个测试，~20 秒
 ```
 
 #### 4.7 设置管理员
@@ -326,7 +341,7 @@ cd springboot
 mvn spring-boot:run
 # → http://localhost:8080
 
-# 运行单元测试（371 个测试，~20 秒）
+# 运行单元测试（403 个测试，~20 秒）
 mvn test
 ```
 
@@ -352,8 +367,12 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 1. 访问 `http://localhost:3000`（或 `http://localhost` Docker 模式）
 2. **注册**：点击「注册账号」→ 输入邮箱 → 发送验证码 → 设置密码
 3. **登录**：邮箱 + 密码 + 图形验证码（或切换到微信扫码登录）
-4. **AI 对话**：登录后进入「AI 对话」→ 发送消息 → 体验流式对话
-5. **RAG 知识库**：进入「知识库」→ 创建知识库 → 上传文档 → 在对话中开启 RAG 开关
+4. **AI 对话**：登录后进入「AI 对话」→ 发送消息 → 体验流式对话（Markdown 渲染 + 代码高亮）
+5. **RAG 知识库**：进入「知识库」→ 创建知识库 → 上传文档（PDF/DOCX/TXT/MD）→ 在对话中开启 RAG 开关，AI 将基于你的文档回答
+6. **AI Agent 智能体**：在对话页打开「Agent」开关 → 发送需要搜索/计算/代码执行的问题 → 观察推理面板实时展示 Agent 的思考过程和工具调用
+7. **多 Agent 协作**：在 `.env` 中设置 `AGENT_MULTI_AGENT=true` → Agent 会自动将任务路由给对应领域的专家（研究/数学/代码）
+8. **对话管理**：左侧对话列表支持新建/切换/删除 → 右键"..."菜单可进入批量管理模式（全选 + 批量删除/恢复/永久删除）→ 回收站支持恢复和彻底清除
+9. **设置管理员**：执行 `docker exec auth-mysql mysql -u root -proot123 springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email = 'your_admin@example.com';"` → 管理员可查看所有注册用户
 
 ---
 
@@ -367,7 +386,7 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 │       ├── main/
 │       │   ├── java/com/zora/
 │       │   │   ├── AppStart.java            # 启动类（@MapperScan + @EnableScheduling）
-│       │   │   ├── config/                  # 配置类（13 个）
+│       │   │   ├── config/                  # 配置类（17 个）
 │       │   │   │   ├── AiConfig.java        # LangChain4j 流式 + 非流式双模型 配置
 │       │   │   │   ├── AgentConfig.java     # Agent 智能体配置（工具开关/Tavily/记忆）
 │       │   │   │   ├── RagConfig.java       # Embedding 模型 + SimpleEmbeddingStore Bean
@@ -381,11 +400,14 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 │       │   │   │   ├── WechatConfig.java    # 微信 OAuth 配置（@Value 注入）
 │       │   │   │   ├── CleanupTask.java     # 定时清理任务（@Scheduled）
 │       │   │   │   └── SwaggerCompatController.java  # Swagger JSON 兼容端点
-│       │   │   ├── controller/              # REST 控制器（4 个，共 33+ 端点）
+│       │   │   ├── controller/              # REST 控制器（7 个，共 44+ 端点）
 │       │   │   │   ├── UserController.java  # 用户认证（16 个端点）
-│       │   │   │   ├── AiChatController.java    # AI 对话 + SSE 流式 + RAG 对话
+│       │   │   │   ├── AiChatController.java    # AI 对话 + SSE 流式 + RAG 对话 + 批量操作
 │       │   │   │   ├── AgentController.java # Agent SSE 流式对话（/agent/chat/stream）
-│       │   │   │   └── RagController.java   # RAG 知识库 CRUD（16 个端点）
+│       │   │   │   ├── RagController.java   # RAG 知识库 CRUD（16 个端点）
+│       │   │   │   ├── SearchController.java    # Phase 4 全文搜索（/search/messages）
+│       │   │   │   ├── StatisticsController.java # Phase 4 数据仪表盘（8 个统计端点）
+│       │   │   │   └── RecommendController.java  # Phase 4 智能推荐（/recommend/suggestions）
 │       │   │   ├── service/                 # 业务逻辑层
 │       │   │   │   ├── UserService.java     # 用户认证接口
 │       │   │   │   ├── AiChatService.java   # AI 对话接口
@@ -397,14 +419,17 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 │       │   │   │       ├── RagServiceImpl.java        # 知识库业务 + 两级回收站（~790 行）
 │       │   │   │       ├── RagProcessingServiceImpl.java  # Tika 解析 + 分块 + Embedding + 启动重建
 │       │   │   │       └── SimpleEmbeddingStore.java   # 自实现余弦相似度内存向量存储
-│       │   │   ├── entity/                  # 实体类（MyBatis-Plus @TableName）
+│       │   │   ├── entity/                  # 实体类（10 个，MyBatis-Plus @TableName）
 │       │   │   │   ├── User.java            # 用户（id, email, password, openid, role）
 │       │   │   │   ├── ChatConversation.java # 对话会话
 │       │   │   │   ├── ChatMessage.java     # 对话消息
 │       │   │   │   ├── KnowledgeBase.java   # 知识库（支持软删除）
 │       │   │   │   ├── KbDocument.java      # 文档（含处理状态机）
-│       │   │   │   └── KbChunk.java         # 文本块（持久化用于向量重建）
-│       │   │   ├── mapper/                  # MyBatis-Plus Mapper（BaseMapper 免写 SQL）
+│       │   │   │   ├── KbChunk.java         # 文本块（持久化用于向量重建）
+│       │   │   │   ├── SearchResult.java    # Phase 4 搜索结果 DTO
+│       │   │   │   ├── UserActionLog.java   # Phase 4 用户行为日志
+│       │   │   │   └── ChatConversationSummary.java  # 对话摘要
+│       │   │   ├── mapper/                  # MyBatis-Plus Mapper（8 个，BaseMapper + 自定义 SQL）
 │       │   │   │   ├── UserMapper.java
 │       │   │   │   ├── ChatConversationMapper.java
 │       │   │   │   ├── ChatMessageMapper.java
@@ -456,7 +481,7 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 │       │           ├── DB_MIGRATION.sql     # 完整迁移（所有表）
 │       │           ├── V2__chat_tables.sql  # AI 对话表（conversation + message）
 │       │           └── V3__rag_tables.sql   # RAG 知识库/文档/块表
-│       └── test/                            # 单元测试（371 个，JUnit 5 + Mockito + MockMvc）
+│       └── test/                            # 单元测试（403 个，JUnit 5 + Mockito + MockMvc）
 │           ├── resources/
 │           │   └── application.yml          # 测试配置（H2 + 占位凭证）
 │           └── java/com/zora/
@@ -530,8 +555,11 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 │   └── Windows_Reserved_Port_8080_FIX.md    # Windows 保留端口 8080 排查修复
 ├── Project Detail Guide/                     # 项目构建详细指南
 │   ├── WECHAT_SETUP_GUIDE.md                # 微信扫码登录完整配置指南
-│   ├── 项目构建教程1.md                      # 用户认证系统 28 步构建教程
-│   └── 项目构建教程2.md                      # AI 对话 + RAG 知识库详细实现
+│   ├── 01-authentication-system.md            # Phase 1 用户认证系统构建教程
+│   ├── 02-ai-chat.md                          # Phase 2 AI 智能对话构建教程
+│   ├── 03-rag-knowledge-base.md               # Phase 3 RAG 知识库构建教程
+│   ├── 04-ai-agent.md                         # Phase 4 AI Agent 智能体构建教程
+│   └── 05-smart-search-analytics.md           # Phase 5 智能搜索与分析构建教程
 ├── README1.md                               # README 历史版本
 └── README2.md                               # README 历史版本
 ```
@@ -605,6 +633,23 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 
 > 📖 在线调试：Docker启动后访问 `http://localhost/doc.html`（Knife4j 接口文档，支持在线发送请求）
 
+### 智能搜索与分析
+
+| 方法 | 路径 | 说明 | 认证 |
+| ---- | ---- | ---- | :--: |
+| GET | `/search/messages` | 全文搜索消息（MySQL FULLTEXT + ngram 中文分词 + 高亮） | ✅ |
+| GET | `/statistics/overview` | 数据总览（总会话数/总消息数/活跃天数/AI 使用率） | ✅ |
+| GET | `/statistics/message-trend` | 消息趋势折线图数据（分 user/assistant 统计） | ✅ |
+| GET | `/statistics/active-hours` | 24 小时活跃热力图数据 | ✅ |
+| GET | `/statistics/conversation-trend` | 对话创建趋势 | ✅ |
+| GET | `/statistics/message-ratio` | 用户 vs AI 消息占比（饼图数据） | ✅ |
+| GET | `/statistics/knowledge-stats` | 知识库使用统计 | ✅ |
+| GET | `/statistics/action-ranking` | 功能使用排行（从 user_action_log 聚合） | ✅ |
+| GET | `/statistics/weekly-activity` | 最近 7 天每日活跃操作次数 | ✅ |
+| GET | `/recommend/suggestions` | 智能推荐（相关对话/建议问题/热门知识库） | ✅ |
+
+> 行为追踪通过 `@TrackAction` 注解自动采集，无需前端额外调用。统计数据使用 Redis TTL 分级缓存（30min~4h）。
+
 ---
 
 ## 架构设计
@@ -612,22 +657,26 @@ mysql -u root -p springboot_zyt -e "UPDATE user SET role = 'admin' WHERE email =
 ### 整体架构
 
 ```
-┌────────────────────┐     SSE/JSON/HTTP    ┌───────────────────┐     OpenAI API   ┌────────────┐
-│    Vue 3 前端      │ ←───────────── ────→ │  Spring Boot 后端 │ ←───────────────→ │  DeepSeek │
-│                    │     Nginx 代理       │                   │     HTTPS         │    API    │
-│  • Login/Register  │                      │  • 用户认证 (JWT) │                   │           │
-│  • Chat.vue        │                      │  • AI 对话 (LLM)  │                   │           │
-│  • KnowledgeBase   │                      │  • RAG 知识库     │                   │           │
-│  • Home.vue        │                      │  • 全局异常处理    │                   │           │
-└────────┬───────────┘                      └─────────┬─────────┘                   └───────────┘
-         │                                            │                                  │
-         │ localStorage                               │ MySQL (用户/对话/消息/知识库)      │ Embedding API
-         │ (JWT Token)                                │ Redis (Token/验证码/状态)         │ (OpenAI 兼容)
-         ▼                                            ▼                                  ▼
-┌──────────────────┐                      ┌───────────────────┐                   ┌───────────┐
-│    浏览器        │                       │     数据库        │                   │ Embedding │
-└──────────────────┘                      └───────────────────┘                   │  Service  │
-                                                                                  └───────────┘
+┌────────────────────┐     SSE/JSON/HTTP    ┌───────────────────┐     OpenAI API       ┌────────────┐
+│    Vue 3 前端      │ ←─────────────────→ │  Spring Boot 后端 │ ←────────────────────→ │  DeepSeek │
+│                    │     Nginx 代理       │                   │     HTTPS             │    API    │
+│  • Login/Register  │                      │  • 用户认证 (JWT) │                       │           │
+│  • Chat.vue        │                      │  • AI 对话 (LLM)  │                       │           │
+│  • KnowledgeBase   │                      │  • RAG 知识库     │                       │           │
+│  • Search.vue      │                      │  • Agent 智能体   │                       │           │
+│  • Dashboard.vue   │                      │  • 全文搜索       │                       │           │
+│  • RecommendCard   │                      │  • 数据统计       │                       │           │
+└────────┬───────────┘                      │  • 行为追踪       │                       │           │
+         │                                  │  • 智能推荐       │                       │           │
+         │ localStorage                     └─────────┬─────────┘                       └───────────┘
+         │ (JWT Token)                                │                                       │
+         ▼                                            │ MySQL (用户/对话/消息/知识库/行为日志)   │ Embedding API
+┌──────────────────┐                                  │ Redis (Token/验证码/状态/统计缓存)      │ (OpenAI 兼容)
+│    浏览器        │                                  ▼                                        ▼
+└──────────────────┘                      ┌───────────────────┐                          ┌───────────┐
+                                          │     数据库         │                          │ Embedding │
+                                          └───────────────────┘                          │  Service  │
+                                                                                         └───────────┘
 ```
 
 ### 认证鉴权链路
@@ -689,7 +738,85 @@ DeepSeek API (chunked response)
                     → 用户看到逐字出现的回复
 ```
 
-### 全局异常处理
+### 全文搜索引擎
+
+```
+用户输入关键词（Search.vue, 300ms debounce）
+  → GET /search/messages?q=微服务&page=1&size=20
+    → SearchService.searchMessages()
+      ├─ validateKeyword() (非空 + 200 字限制)
+      ├─ escapeFulltextChars() (转义 + - > < 等 FULLTEXT 特殊字符)
+      ├─ ChatMessageMapper.fulltextSearch()
+      │   └─ SELECT ... MATCH(content) AGAINST('微服务' IN BOOLEAN MODE)
+      │       └─ InnoDB FULLTEXT 引擎 (ngram: 微服/服务)
+      ├─ highlight() Java 层正则替换 → <mark>微服务</mark>
+      └─ 返回 { total, page, list: [{..., highlightContent}] }
+
+前端渲染: v-html="DOMPurify.sanitize(highlightContent)"
+  → 关键词黄色高亮 + 点击标题跳转 /chat?conversationId=X
+```
+
+### 用户行为追踪
+
+```
+用户操作（如发送消息）
+  → @TrackAction("message_send")
+    → ActionLogAspect.logAction() [主线程 @AfterReturning]
+      ├─ email = request.getAttribute("userEmail")  ← Request 回收前提取
+      ├─ action = trackAction.value()
+      ├─ ip = request.getHeader("X-Forwarded-For")
+      └─ actionLogWriter.write(email, action, ip)   ← 跨 Bean 委托
+            → @Async 异步线程 (action-log-*)
+              ├─ resolveUserId(email) → userId
+              └─ INSERT user_action_log(userId, action, ip)
+```
+
+### 智能推荐
+
+```
+Chat.vue 侧边栏 RecommendCard
+  → GET /recommend/suggestions
+    → RecommendService.getRecommendations()
+      ├─ findRelatedConversations()
+      │   ├─ 加载最近 10 条用户消息
+      │   ├─ extractKeywords() (Bigram 分词 + 停止词过滤 → Top 5)
+      │   ├─ MATCH AGAINST(keywords) → 排除最近对话 → Top 3
+      │   └─ 返回 [{conversationId, title, matchCount}]
+      ├─ generateSuggestedQuestions()
+      │   └─ Bigram 主题匹配模板库 → 返回 3 个建议问题
+      └─ findPopularKnowledge()
+          └─ 按文档数量降序 → Top 3
+```
+
+### AI Agent 推理与编排
+
+```
+用户消息 → AgentController → AgentServiceImpl
+  ├── 限流（Redis ZSET 滑动窗口，10 次/分钟）
+  ├── 注入检测（18 种中英文 Prompt Injection 模式）
+  ├── 模式判断：
+  │   ├── multi-agent.enabled=true（多 Agent 编排）
+  │   │   └── AgentGraph.execute()
+  │   │       ├── SupervisorAgent.classify()    ← LLM 零样本意图分类
+  │   │       ├── ResearchAgent  (WebSearchTool)   ─┐
+  │   │       ├── MathAgent      (MathTool)         ├─ 专家执行
+  │   │       ├── CodeAgent      (CodeExecutionTool) ┘
+  │   │       └── Summarizer.aggregate() → 流式输出
+  │   │
+  │   ├── tools 非空（标准 Agent ReAct 循环）
+  │   │   └── for (i < 5):
+  │   │       ├── 非流式 ChatModel 推理 → thinking 事件
+  │   │       ├── tool_call → 执行工具 → tool_result 事件
+  │   │       └── LLM 分析结果 → 继续/跳出循环
+  │   │       └── 流式 StreamingChatModel 输出最终回答
+  │   │
+  │   └── tools 为空（降级为增强对话）
+  │       └── 流式直接回答
+  │
+  └── 保存消息 + 触发摘要生成（每 10 条消息异步生成 ≤300 字摘要）
+
+SSE 事件流: thinking → tool_call → tool_result → token → done/error
+```
 
 采用 Spring MVC 标准 `@RestControllerAdvice` 统一捕获所有异常：
 
@@ -762,6 +889,7 @@ RuntimeException
 | Jackson | 2.x | JSON 序列化 |
 | Knife4j | 4.5.0 | OpenAPI 3 接口文档 + 在线调试 |
 | WebFlux | — | SSE 流式响应（`Flux<String>`） |
+| Spring AOP | — | 用户行为追踪切面（@TrackAction + @Async 异步日志） |
 
 ### 前端
 
@@ -776,13 +904,14 @@ RuntimeException
 | marked | — | Markdown → HTML 转换 |
 | highlight.js | — | 代码语法高亮（190+ 语言） |
 | DOMPurify | — | XSS 防护（过滤 AI 输出） |
+| ECharts | 6 | 数据可视化图表（折线图/柱状图/饼图，按需导入） |
 | 原生 fetch | — | SSE 流式读取（Axios 不支持 ReadableStream） |
 
 ---
 
 ## 测试
 
-**框架**：JUnit 5 + Mockito + Spring MockMvc (standalone setup)，371 个测试，纯单元测试 — 无需 MySQL/Redis/网络，CI 就绪。
+**框架**：JUnit 5 + Mockito + Spring MockMvc (standalone setup)，403 个测试，纯单元测试 — 无需 MySQL/Redis/网络，CI 就绪。
 
 ```bash
 cd springboot
@@ -858,12 +987,12 @@ AI_MODEL_NAME=your-model-name
 - [x] **3.4 记忆系统** — MessageWindowChatMemory + RedisChatMemoryStore + 对话摘要、24 个新测试
 - [x] **3.5 多 Agent 编排** — SupervisorAgent 意图分类 + ResearchAgent/MathAgent/CodeAgent 专家 + AgentGraph 编排器 + Summarizer 聚合 + 36 个新测试
 
-### 🔜 Phase 4：智能搜索与分析
+### ✅ Phase 4：智能搜索与分析（已完成）
 
-- [ ] 全文搜索引擎
-- [ ] 对话数据分析仪表盘
-- [ ] 用户行为分析
-- [ ] 智能推荐
+- [x] 全文搜索引擎（MySQL FULLTEXT + ngram 中文分词）
+- [x] 对话数据分析仪表盘（ECharts 6 + Redis 缓存）
+- [x] 用户行为分析（AOP + @TrackAction + @Async）
+- [x] 智能推荐（关键词提取 + FULLTEXT 匹配）
 
 ---
 
@@ -872,13 +1001,18 @@ AI_MODEL_NAME=your-model-name
 | 文档 | 说明 |
 |------|------|
 | [CLAUDE.md](CLAUDE.md) | 项目架构与开发规范（含 RAG + Agent 完整文档） |
-| [项目构建教程1.md](Project%20Detail%20Guide/项目构建教程1.md) | 用户认证系统 28 步完整构建过程 |
-| [项目构建教程2.md](Project%20Detail%20Guide/项目构建教程2.md) | AI 智能对话 + RAG 知识库详细实现（含 Phase 3 Agent 概述） |
+| [01-authentication-system.md](Project%20Detail%20Guide/01-authentication-system.md) | 用户认证系统 28 步构建教程（后端+前端） |
+| [02-ai-chat.md](Project%20Detail%20Guide/02-ai-chat.md) | AI 智能对话：DeepSeek + SSE 流式 + Markdown 渲染 |
+| [03-rag-knowledge-base.md](Project%20Detail%20Guide/03-rag-knowledge-base.md) | RAG 知识库：Tika + Embedding + 向量检索 + 两级回收站 |
+| [04-ai-agent.md](Project%20Detail%20Guide/04-ai-agent.md) | AI Agent 智能体：Tool Calling + 多 Agent 编排 + 记忆系统 |
+| [05-smart-search-analytics.md](Project%20Detail%20Guide/05-smart-search-analytics.md) | 智能搜索与分析：FULLTEXT + ECharts + 行为追踪 + 推荐 |
 | [WECHAT_SETUP_GUIDE.md](Project%20Detail%20Guide/WECHAT_SETUP_GUIDE.md) | 微信扫码登录完整配置指南 |
 | [P0_SECURITY_FIX.md](FIX_Document/P0_SECURITY_FIX.md) | P0 安全修复记录：Token 类型校验 + 暴力破解防护 |
 | [P1_SECURITY_FIX.md](FIX_Document/P1_SECURITY_FIX.md) | P1 安全修复记录 |
+| [PHASE3_AGENT_FIX.md](FIX_Document/PHASE3_AGENT_FIX.md) | Phase 3 Agent 智能体修复记录（12 项） |
+| [LOCAL_VS_DOCKER_PROXY.md](FIX_Document/LOCAL_VS_DOCKER_PROXY.md) | 本地开发 vs Docker 代理配置同步指南（Nginx + Vite） |
 | [Windows_Reserved_Port_8080_FIX.md](FIX_Document/Windows_Reserved_Port_8080_FIX.md) | Windows 保留端口 8080 排查修复 |
-| [DB_MIGRATION.sql](DB_MIGRATION.sql) | 数据库迁移脚本 |
+| [DB_MIGRATION.sql](springboot/src/main/resources/db/migration/DB_MIGRATION.sql) | 数据库完整迁移脚本（所有表 + 索引） |
 
 ---
 

@@ -228,6 +228,11 @@
           </div>
         </div>
       </Transition>
+            <!-- Phase 4 智能推荐卡片 -->
+      <RecommendCard
+        v-if="!sidebarCollapsed && !showTrash"
+        @ask-question="handleRecommendedQuestion"
+      />
 
       <!-- 侧边栏底部 -->
       <div class="sidebar-footer" v-if="!sidebarCollapsed">
@@ -245,6 +250,10 @@
         <button class="footer-btn" @click="$router.push('/knowledge')">
           <el-icon :size="16"><Collection /></el-icon>
           <span>知识库</span>
+        </button>
+        <button class="footer-btn" @click="$router.push('/dashboard')">
+          <el-icon :size="16"><DataAnalysis /></el-icon>
+          <span>仪表盘</span>
         </button>
         <button class="footer-btn" @click="$router.push('/home')">
           <el-icon :size="16"><HomeFilled /></el-icon>
@@ -599,6 +608,8 @@ import {
   UserFilled, RefreshLeft, Collection, CircleCheckFilled,
   // Phase 3.3: Agent 推理面板图标
   Cpu, Loading, Tools, CircleCheck, ArrowUp, ArrowDown, MoreFilled, List,
+  // Phase 4: 仪表盘 + 推荐图标
+  DataAnalysis,
 } from '@element-plus/icons-vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
@@ -615,6 +626,8 @@ import {
 import { streamRagChat, listKnowledgeBases } from '@/api/rag'
 // Phase 3.3: Agent SSE 流式对话
 import { streamAgentChat } from '@/api/agent'
+// Phase 4: 智能推荐卡片
+import RecommendCard from '@/components/RecommendCard.vue'
 
 const router = useRouter()
 const messagesContainer = ref(null)
@@ -755,6 +768,7 @@ const handleBatchDelete = async () => {
     ElMessage.success(`已删除 ${ids.length} 个对话`)
     selectedConvIds.value = new Set()
     await loadConversations()
+    await loadDeletedConversations()   // 同步更新回收站数目
     if (ids.includes(currentConversationId.value)) handleNewChat()
   } catch { /* 取消或失败 */ }
 }
@@ -980,6 +994,7 @@ const handleDeleteConversation = async (id) => {
     ElMessage.success('已删除')
     if (currentConversationId.value === id) handleNewChat()
     await loadConversations()
+    await loadDeletedConversations()   // 同步更新回收站数目
   } catch {}
 }
 
@@ -1177,6 +1192,12 @@ const handleSuggestion = (text) => {
   handleSend()
 }
 
+// Phase 4: 点击推荐问题 → 填入输入框并发送
+const handleRecommendedQuestion = (text) => {
+  inputMessage.value = text
+  handleSend()
+}
+
 // ==================== 辅助功能 ====================
 
 const scrollToBottom = async () => {
@@ -1353,7 +1374,7 @@ onUnmounted(() => {
 
 /* ==================== 侧边栏 ==================== */
 .sidebar {
-  width: 260px;
+  width: 300px;
   min-width: 260px;
   background: #f2f0ec;
   display: flex;

@@ -6,6 +6,22 @@
         <div class="header-right">
           <span class="welcome">欢迎回来</span>
           <el-button
+            type="info"
+            plain
+            size="default"
+            @click="$router.push('/search')"
+          >
+            全文搜索
+          </el-button>
+          <el-button
+            type="warning"
+            plain
+            size="default"
+            @click="$router.push('/dashboard')"
+          >
+            数据仪表盘
+          </el-button>
+          <el-button
             type="success"
             plain
             size="default"

@@ -44,7 +44,7 @@ npm run dev                  # → http://localhost:3000
 #    Redis:    localhost:6379
 
 # Run tests
-cd springboot && mvn test        # 371 tests, ~20s
+cd springboot && mvn test        # 403 tests, ~20s
 ```
 
 **How hot reload works**:
@@ -96,7 +96,7 @@ docker compose logs -f backend
 cd springboot
 mvn spring-boot:run
 
-# Run tests (371 tests, ~20 seconds)
+# Run tests (403 tests, ~20 seconds)
 cd springboot
 mvn test
 
@@ -132,7 +132,7 @@ redis-cli
 ```
 springboot/src/main/java/com/zora/
 ├── AppStart.java                          # 启动类
-├── config/                                # 配置类（13 个）
+├── config/                                # 配置类（17 个）
 │   ├── AiConfig.java                      #   LangChain4j 流式 + 非流式模型（Phase 3 新增 ChatLanguageModel）
 │   ├── AgentConfig.java                   #   Agent 智能体配置（Phase 3，@ConfigurationProperties）
 │   ├── RagConfig.java                     #   EmbeddingModel + SimpleEmbeddingStore Bean
@@ -145,7 +145,11 @@ springboot/src/main/java/com/zora/
 │   ├── MyConfig.java                      #   MyBatis-Plus 分页插件
 │   ├── WechatConfig.java                  #   微信 OAuth 配置
 │   ├── CleanupTask.java                   #   定时清理任务
-│   └── SwaggerCompatController.java       #   Swagger JSON 兼容端点
+│   ├── SwaggerCompatController.java       #   Swagger JSON 兼容端点
+│   ├── TrackAction.java                   #   @TrackAction 行为追踪注解（Phase 4）
+│   ├── ActionLogAspect.java               #   AOP 切面：主线程提取数据 + 委托异步写入（Phase 4）
+│   ├── ActionLogWriter.java               #   @Async 行为日志写入组件（Phase 4）
+│   └── AsyncConfig.java                   #   异步线程池配置（Phase 4）
 ├── agent/                                 # Agent 智能体（Phase 3，5 个子包）
 │   ├── AgentService.java                  #   Agent 服务接口
 │   ├── impl/AgentServiceImpl.java         #   核心实现：两阶段流式 + ReAct + 多 Agent
@@ -161,25 +165,35 @@ springboot/src/main/java/com/zora/
 │       ├── MathAgent.java                 #     数学计算专家（MathTool）
 │       ├── CodeAgent.java                 #     代码执行专家（CodeExecutionTool）
 │       └── AgentGraph.java                #     多 Agent 编排器（Supervisor + Summarizer）
-├── controller/                            # REST 控制器（4 个，36+ 端点）
+├── controller/                            # REST 控制器（7 个，44+ 端点）
 │   ├── UserController.java                #   用户认证（16 端点）
 │   ├── AiChatController.java              #   AI 对话 + SSE + RAG 对话 + 批量操作（3 新增）
 │   ├── AgentController.java               #   Agent 智能体 SSE 流式对话（Phase 3）
-│   └── RagController.java                 #   RAG 知识库 CRUD（16 端点）
+│   ├── RagController.java                 #   RAG 知识库 CRUD（16 端点）
+│   ├── SearchController.java              #   Phase 4 全文搜索（/search/messages）
+│   ├── StatisticsController.java          #   Phase 4 数据仪表盘（8 个统计端点）
+│   └── RecommendController.java           #   Phase 4 智能推荐（/recommend/suggestions）
 ├── service/                               # 业务逻辑层
 │   ├── UserService.java / impl/UserServiceImpl.java           # 用户认证
 │   ├── AiChatService.java / impl/AiChatServiceImpl.java       # AI 对话 + RAG 注入
 │   ├── RagService.java / impl/RagServiceImpl.java             # 知识库 CRUD + 回收站
 │   ├── RagProcessingService.java / impl/RagProcessingServiceImpl.java  # 文档处理 + 启动重建
 │   ├── ConversationSummaryService.java / impl/ConversationSummaryServiceImpl.java  # Phase 3.4 对话摘要
+│   ├── SearchService.java / impl/SearchServiceImpl.java       # Phase 4 全文搜索 + 高亮
+│   ├── StatisticsService.java / impl/StatisticsServiceImpl.java # Phase 4 数据统计 + Redis 缓存
+│   ├── RecommendService.java / impl/RecommendServiceImpl.java  # Phase 4 智能推荐（Bigram + FULLTEXT）
 │   └── impl/SimpleEmbeddingStore.java     #   余弦相似度内存向量存储
-├── entity/                                # 实体类（8 个）
+├── entity/                                # 实体类（10 个）
 │   ├── User.java, ChatConversation.java, ChatMessage.java
 │   ├── KnowledgeBase.java, KbDocument.java, KbChunk.java
 │   ├── AgentStep.java                     #   瞬态 POJO（Phase 3，记录推理步骤）
-│   └── ChatConversationSummary.java       #   Phase 3.4 对话摘要实体
-├── mapper/                                # MyBatis-Plus Mapper（7 个，BaseMapper 免写 SQL）
-│   └── ChatConversationSummaryMapper.java #   Phase 3.4 摘要 Mapper
+│   ├── ChatConversationSummary.java       #   Phase 3.4 对话摘要实体
+│   ├── SearchResult.java                  #   Phase 4 搜索结果 DTO
+│   └── UserActionLog.java                 #   Phase 4 用户行为日志
+├── mapper/                                # MyBatis-Plus Mapper（8 个 + 1 XML）
+│   ├── ChatConversationSummaryMapper.java #   Phase 3.4 摘要 Mapper
+│   ├── UserActionLogMapper.java           #   Phase 4 行为日志 Mapper
+│   └── ChatMessageMapper.xml              #   Phase 4 全文搜索 + 统计 SQL（首个 Mapper XML）
 ├── exception/                             # 异常体系（7 个）
 │   ├── BusinessException.java             #   基类
 │   ├── BadRequestException (400) / UnauthorizedException (401)
@@ -202,7 +216,7 @@ web/frontend/src/
 ├── router/index.js                        # 路由 + 导航守卫
 └── utils/token.js                         # localStorage 双 Token 存取
 
-springboot/src/test/java/com/zora/          # 单元测试（371 个）
+springboot/src/test/java/com/zora/          # 单元测试（403 个）
 ├── utils/         ResponseUtilTest, CaptchaUtilTest, JwtUtilTest
 ├── service/       UserServiceImplTest, RagServiceImplTest, EmbeddingDebugTest
 ├── config/        LoginInterceptorTest, RoleInterceptorTest, SwaggerCompatControllerTest
@@ -742,7 +756,7 @@ agent:
 
 
 
-**Framework**: JUnit 5 + Mockito + Spring MockMvc (standalone setup). All 371 tests run as pure unit tests — no MySQL/Redis/network dependency, CI-ready. (Including RAG knowledge base tests with two-level recycle bin and Agent tool tests)
+**Framework**: JUnit 5 + Mockito + Spring MockMvc (standalone setup). All 403 tests run as pure unit tests — no MySQL/Redis/network dependency, CI-ready. (Including RAG knowledge base tests with two-level recycle bin and Agent tool tests)
 
 **Run**: `cd springboot && mvn test` (~10 seconds, 0 failures).
 
@@ -765,7 +779,113 @@ agent:
 - Real `BCryptPasswordEncoder` (spied) for service tests — no external dependency
 - Standalone MockMvc controllers wired with `ReflectionTestUtils.setField(controller, "userService", mock)` + `.setControllerAdvice(new GlobalExceptionHandler())`
 
-**Test config**: `springboot/src/test/resources/application.yml` provides H2 datasource + placeholder credentials for `@Value` injection — but pure unit tests (all current 371 tests) never load it.
+**Test config**: `springboot/src/test/resources/application.yml` provides H2 datasource + placeholder credentials for `@Value` injection — but pure unit tests (all current 403 tests) never load it.
+
+---
+
+## 智能搜索与分析 (Phase 4)
+
+### Architecture
+
+Phase 4 在 AI 对话、RAG 知识库和 AI Agent 基础上，新增四大智能分析能力：**全文搜索**、**数据仪表盘**、**用户行为分析**、**智能推荐**。全部基于现有技术栈实现，不引入 ElasticSearch 等重型中间件。
+
+```text
+全文搜索:  MySQL FULLTEXT + ngram parser → Java 层 <mark> 高亮 → Search.vue
+数据仪表盘: Mapper 统计 SQL → Redis TTL 分级缓存 → ECharts 6 图表 → Dashboard.vue
+行为分析:  @TrackAction 注解 → AOP 切面(主线程提取) → ActionLogWriter(@Async 写入)
+智能推荐:  Bigram 中文分词 → FULLTEXT 匹配 → RecommendCard.vue 三维推荐
+```
+
+### New API Endpoints (/search/**, /statistics/**, /recommend/**)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/search/messages?q=关键词&page=1&size=20` | 全文搜索消息（FULLTEXT + ngram + 高亮） |
+| GET | `/statistics/overview` | 数据总览（总会话数/总消息数/活跃天数/AI使用率） |
+| GET | `/statistics/message-trend?days=30` | 消息趋势折线图数据 |
+| GET | `/statistics/active-hours` | 24 小时活跃热力图数据 |
+| GET | `/statistics/conversation-trend?days=30` | 对话创建趋势 |
+| GET | `/statistics/message-ratio` | 用户 vs AI 消息占比 |
+| GET | `/statistics/knowledge-stats` | 知识库使用统计 |
+| GET | `/statistics/action-ranking` | 功能使用排行（从 user_action_log 聚合） |
+| GET | `/statistics/weekly-activity` | 最近 7 天活跃度 |
+| GET | `/recommend/suggestions` | 智能推荐（相关对话/建议问题/热门知识库） |
+
+All `/search/**`, `/statistics/**`, `/recommend/**` endpoints require login. Add to `WebConfig.excludePathPatterns` if making any public.
+
+### @TrackAction Behavior Tracking
+
+Custom AOP annotation for automatic user behavior logging:
+
+```java
+@TrackAction("message_send")    // on AiChatController.streamChat()
+@TrackAction("conv_create")     // on AiChatController.createConversation()
+@TrackAction("search_query")    // on SearchController.searchMessages()
+@TrackAction("agent_call")      // on AgentController.agentStreamChat()
+@TrackAction("kb_upload")       // on RagController.createKnowledgeBase()
+@TrackAction("kb_query")        // on RagController.queryKnowledgeBase()
+```
+
+**Architecture (Request recycled fix)**: `ActionLogAspect` runs on the main thread (synchronous `@AfterReturning`), extracts email/action/IP from `HttpServletRequest` before Tomcat recycles it, then delegates to `ActionLogWriter.write(email, action, ip)` which runs asynchronously (`@Async`) on a separate thread pool. This separation prevents the "request object has been recycled" error that occurs when `@Async` is placed directly on the aspect method.
+
+### Key Backend Files
+
+| Layer | File |
+|-------|------|
+| Config | `config/TrackAction.java` — @TrackAction custom annotation |
+| Config | `config/ActionLogAspect.java` — AOP aspect (main thread extraction) |
+| Config | `config/ActionLogWriter.java` — @Async DB write component |
+| Config | `config/AsyncConfig.java` — Thread pool (core=2, max=5, queue=100) |
+| Entity | `entity/SearchResult.java` — Search result DTO (9 fields) |
+| Entity | `entity/UserActionLog.java` — User action log (6 action type constants) |
+| Mapper | `mapper/ChatMessageMapper.xml` — First Mapper XML: FULLTEXT search + statistics SQL |
+| Mapper | `mapper/UserActionLogMapper.java` — Action log BaseMapper |
+| Service | `service/SearchService.java` + `impl/SearchServiceImpl.java` — FULLTEXT search + highlight |
+| Service | `service/StatisticsService.java` + `impl/StatisticsServiceImpl.java` — 8 stats methods + Redis cache |
+| Service | `service/RecommendService.java` + `impl/RecommendServiceImpl.java` — Bigram + FULLTEXT recommendations |
+| Controller | `controller/SearchController.java` — GET /search/messages |
+| Controller | `controller/StatisticsController.java` — 8 statistics endpoints |
+| Controller | `controller/RecommendController.java` — GET /recommend/suggestions |
+| Migration | `db/migration/V5__search_index.sql` — FULLTEXT indexes (ngram parser) |
+| Migration | `db/migration/V6__user_action_log.sql` — user_action_log table |
+
+### Key Frontend Files
+
+| File | Purpose |
+|------|---------|
+| `api/search.js` | Search API client |
+| `api/statistics.js` | 8 statistics API functions |
+| `api/recommend.js` | Recommendation API client |
+| `views/Search.vue` | Full-text search page (debounce + highlight + pagination) |
+| `views/Dashboard.vue` | Data dashboard (4 summary cards + 6 ECharts charts) |
+| `components/charts/BaseChart.vue` | Reusable ECharts wrapper (init/dispose/resize) |
+| `components/charts/LineChart.vue` | Line chart component |
+| `components/charts/BarChart.vue` | Bar chart component |
+| `components/charts/PieChart.vue` | Pie chart component (donut style) |
+| `components/RecommendCard.vue` | 3-tab recommendation card (conversations/questions/knowledge) |
+
+### Configuration
+
+```yaml
+# Vite proxy (add to vite.config.js)
+'/search': { target: 'http://localhost:8080', changeOrigin: true }
+'/statistics': { target: 'http://localhost:8080', changeOrigin: true }
+'/recommend': { target: 'http://localhost:8080', changeOrigin: true }
+
+# Nginx proxy (add to nginx.conf for Docker)
+location /search/ { proxy_pass http://backend:8080; }
+location /statistics/ { proxy_pass http://backend:8080; }
+location /recommend/ { proxy_pass http://backend:8080; }
+```
+
+### Phase 4 Sub-phases
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Task A | 全文搜索引擎（MySQL FULLTEXT + ngram + Search.vue） | ✅ Done |
+| Task B | 对话数据分析仪表盘（ECharts 6 + Redis 缓存 + Dashboard.vue） | ✅ Done |
+| Task C | 用户行为分析（AOP + @TrackAction + @Async + user_action_log） | ✅ Done |
+| Task D | 智能推荐（Bigram 分词 + FULLTEXT 匹配 + RecommendCard.vue） | ✅ Done |
 
 ---
 
