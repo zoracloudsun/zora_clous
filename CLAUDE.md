@@ -25,7 +25,7 @@ docker compose up -d mysql redis
 cd springboot && mvn spring-boot:run    # → :8080
 
 # 3. 前端（HMR）
-cd web/frontend && npm run dev          # → :3000
+cd web/frontend && npm run dev          # → :4000
 
 # 4. 测试
 cd springboot && mvn test -Dtest='!*IntegrationTest'   # 403 单元测试，~20s

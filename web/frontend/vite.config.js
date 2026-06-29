@@ -51,6 +51,27 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      // Knife4j / Swagger 接口文档代理
+      '/doc.html': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/webjars': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/v3/api-docs': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/swagger-resources': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/swagger-ui': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
   },
 })

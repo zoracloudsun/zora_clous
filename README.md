@@ -227,7 +227,7 @@ mvn spring-boot:run          # → http://localhost:8080
 ```bash
 cd web/frontend
 npm install                   # 首次运行
-npm run dev                   # → http://localhost:3000
+npm run dev                   # → http://localhost:4000
 ```
 
 前端使用 Vite HMR，保存文件后浏览器原地更新组件。
@@ -282,14 +282,14 @@ mvn test                      # 运行测试
 ```bash
 cd web/frontend
 npm install
-npm run dev                   # → http://localhost:3000
+npm run dev                   # → http://localhost:4000
 ```
 
 </details>
 
 ### 6. 开始使用
 
-1. 访问 `http://localhost:3000`（开发模式）或 `http://localhost`（Docker 模式）
+1. 访问 `http://localhost:4000`（开发模式）或 `http://localhost`（Docker 模式）
 2. **注册**：点击「注册账号」→ 输入邮箱 → 发送验证码 → 设置密码
 3. **登录**：邮箱 + 密码 + 图形验证码（或切换到微信扫码登录）
 4. **AI 对话**：登录后进入「AI 对话」→ 在模型选择器中选择模型 → 发送消息体验流式对话
