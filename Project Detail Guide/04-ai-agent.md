@@ -1572,7 +1572,7 @@ Phase 3 的所有功能已经开发完毕，现在需要完成配置和启动步
 # 获取地址: https://platform.deepseek.com/api_keys
 AI_API_KEY=sk-your-deepseek-api-key
 AI_BASE_URL=https://api.deepseek.com/v1
-AI_MODEL_NAME=deepseek-chat
+AI_MODEL_NAME=deepseek-v4-flash
 AI_TEMPERATURE=0.7
 AI_MAX_TOKENS=4096
 AI_TIMEOUT_SECONDS=120
@@ -1606,7 +1606,7 @@ AGENT_MULTI_AGENT=false
 |---|---|---|---|
 |`AI_API_KEY` |✅ |— |DeepSeek API 密钥，不配则 AI 对话完全不可用 |
 |`AI_BASE_URL` |❌ |`https://api.deepseek.com/v1` |AI 模型 API 地址 |
-|`AI_MODEL_NAME` |❌ |`deepseek-chat` |模型名称，可改为 `deepseek-reasoner` |
+|`AI_MODEL_NAME` |❌ |`deepseek-v4-flash` |模型名称，可改为 `deepseek-v4-pro`（思考模式） |
 |`AI_EMBEDDING_API_KEY` |RAG |— |Embedding 模型 Key，RAG 知识库需要 |
 |`AI_EMBEDDING_BASE_URL` |❌ |`https://api.openai.com/v1` |Embedding API 地址 |
 |`AI_EMBEDDING_MODEL` |❌ |`text-embedding-3-small` |Embedding 模型名 |

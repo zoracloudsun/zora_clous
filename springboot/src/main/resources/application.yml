@@ -99,13 +99,13 @@ knife4j:
 # 环境变量：
 #   AI_API_KEY          - DeepSeek API 密钥（必填）
 #   AI_BASE_URL         - API 基础 URL（默认 https://api.deepseek.com/v1）
-#   AI_MODEL_NAME       - 模型名称（默认 deepseek-chat）
+#   AI_MODEL_NAME       - 模型名称（默认 deepseek-v4-flash）
 #   AI_TEMPERATURE      - 生成温度 0.0~2.0（默认 0.7）
 #   AI_MAX_TOKENS       - 最大输出 Token 数（默认 4096）
 #   AI_TIMEOUT_SECONDS  - API 超时秒数（默认 120）
 ai:
   default-provider: deepseek
-  default-model: deepseek-chat
+  default-model: deepseek-v4-flash
   temperature: ${AI_TEMPERATURE:0.7}
   max-tokens: ${AI_MAX_TOKENS:4096}
   timeout-seconds: ${AI_TIMEOUT_SECONDS:120}
@@ -117,10 +117,10 @@ ai:
       base-url: ${AI_BASE_URL:https://api.deepseek.com/v1}
       api-key: ${AI_API_KEY:}
       models:
-        - id: deepseek-chat
-          name: DeepSeek-V3
-        - id: deepseek-reasoner
-          name: DeepSeek-R1
+        - id: deepseek-v4-flash
+          name: DeepSeek-V4-Flash
+        - id: deepseek-v4-pro
+          name: DeepSeek-V4-Pro
     # 通义千问 — 取消注释并填入 API Key 即可启用
     # qwen:
     #   type: openai-compatible

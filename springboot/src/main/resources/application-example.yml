@@ -64,7 +64,7 @@ wechat:
 ai:
   api-key: ${AI_API_KEY:YOUR_DEEPSEEK_API_KEY}
   base-url: ${AI_BASE_URL:https://api.deepseek.com/v1}
-  model-name: ${AI_MODEL_NAME:deepseek-chat}
+  model-name: ${AI_MODEL_NAME:deepseek-v4-flash}
   temperature: ${AI_TEMPERATURE:0.7}
   max-tokens: ${AI_MAX_TOKENS:4096}
   timeout-seconds: ${AI_TIMEOUT_SECONDS:120}

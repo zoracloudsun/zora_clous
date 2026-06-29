@@ -39,7 +39,7 @@
 |---|---|---|
 |国内访问 |直连 `api.deepseek.com`，无需代理 |需要翻墙 |
 |API 兼容 |完全兼容 OpenAI API 格式 |原生 |
-|价格 |deepseek-chat ¥1/百万 token |GPT-4o $2.5/百万 token |
+|价格 |deepseek-v4-flash ¥1/百万 token |GPT-4o $2.5/百万 token |
 |性力 |DeepSeek-V4 综合能力接近 GPT-4o |GPT-4o 顶级 |
 |免费额度 |注册送 500 万 token |无 |
 
@@ -221,7 +221,7 @@ public class AiConfig {
     @Value("${ai.base-url:https://api.deepseek.com/v1}")
     private String baseUrl;
 
-    @Value("${ai.model-name:deepseek-chat}")
+    @Value("${ai.model-name:deepseek-v4-flash}")
     private String modelName;
 
     @Value("${ai.temperature:0.7}")
@@ -457,7 +457,7 @@ public class AiChatController {
 ai:
   api-key: ${AI_API_KEY:sk-xxxxxxxx}
   base-url: ${AI_BASE_URL:https://api.deepseek.com/v1}
-  model-name: ${AI_MODEL_NAME:deepseek-chat}
+  model-name: ${AI_MODEL_NAME:deepseek-v4-flash}
   temperature: ${AI_TEMPERATURE:0.7}
   max-tokens: ${AI_MAX_TOKENS:4096}
   timeout-seconds: ${AI_TIMEOUT_SECONDS:120}
@@ -469,7 +469,7 @@ ai:
 # ===== AI 配置 =====
 AI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 AI_BASE_URL=https://api.deepseek.com/v1
-AI_MODEL_NAME=deepseek-chat
+AI_MODEL_NAME=deepseek-v4-flash
 AI_TEMPERATURE=0.7
 AI_MAX_TOKENS=4096
 AI_TIMEOUT_SECONDS=120

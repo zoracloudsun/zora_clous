@@ -18,7 +18,7 @@ import java.util.*;
  * 为每个模型创建独立的 ChatModel 和 StreamingChatModel 实例。
  * </p>
  *
- * <p><b>路由键:</b> {@code "provider:modelId"}（如 {@code "deepseek:deepseek-chat"}）</p>
+ * <p><b>路由键:</b> {@code "provider:modelId"}（如 {@code "deepseek:deepseek-v4-flash"}）</p>
  * <p><b>降级:</b> 找不到指定模型时返回默认模型（{@code ai.default-provider:ai.default-model}）</p>
  * <p>ponytail: 所有模型实例启动时创建，不动态增删。</p>
  */

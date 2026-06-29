@@ -13,7 +13,7 @@ import java.util.Map;
 public class AiProperties {
 
     private String defaultProvider = "deepseek";
-    private String defaultModel = "deepseek-chat";
+    private String defaultModel = "deepseek-v4-flash";
     private Double temperature = 0.7;
     private Integer maxTokens = 4096;
     private Integer timeoutSeconds = 120;

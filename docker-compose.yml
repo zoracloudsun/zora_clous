@@ -91,7 +91,7 @@ services:
       # AI（DeepSeek）
       AI_API_KEY: ${AI_API_KEY:-}
       AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com/v1}
-      AI_MODEL_NAME: ${AI_MODEL_NAME:-deepseek-chat}
+      AI_MODEL_NAME: ${AI_MODEL_NAME:-deepseek-v4-flash}
       # RAG 知识库（Phase 2）
       AI_EMBEDDING_API_KEY: ${AI_EMBEDDING_API_KEY:-}
       AI_EMBEDDING_BASE_URL: ${AI_EMBEDDING_BASE_URL:-https://api.openai.com/v1}

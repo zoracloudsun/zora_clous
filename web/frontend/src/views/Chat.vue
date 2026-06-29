@@ -737,7 +737,7 @@ const agentMode = ref(false)          // Agent 模式开关
 // Phase 5.3: 多模型支持
 const availableModels = ref([])
 const selectedProvider = ref('deepseek')
-const selectedModelId = ref('deepseek-chat')
+const selectedModelId = ref('deepseek-v4-flash')
 const currentModelName = computed(() => {
   const found = availableModels.value.find(m => m.provider === selectedProvider.value && m.modelId === selectedModelId.value)
   return found ? found.name : 'DeepSeek-V3'
