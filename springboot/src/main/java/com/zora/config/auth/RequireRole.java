@@ -1,4 +1,4 @@
-package com.zora.config;
+package com.zora.config.auth;
 
 import java.lang.annotation.*;
 

@@ -1,4 +1,4 @@
-package com.zora.config;
+package com.zora.config.tracking;
 
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;

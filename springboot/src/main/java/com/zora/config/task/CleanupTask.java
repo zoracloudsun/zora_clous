@@ -1,4 +1,4 @@
-package com.zora.config;
+package com.zora.config.task;
 
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;

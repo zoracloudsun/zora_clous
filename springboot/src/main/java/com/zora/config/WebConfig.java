@@ -1,5 +1,7 @@
 package com.zora.config;
 
+import com.zora.config.auth.LoginInterceptor;
+import com.zora.config.auth.RoleInterceptor;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;

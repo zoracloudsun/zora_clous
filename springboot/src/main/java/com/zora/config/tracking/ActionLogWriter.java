@@ -1,4 +1,4 @@
-package com.zora.config;
+package com.zora.config.tracking;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zora.entity.User;

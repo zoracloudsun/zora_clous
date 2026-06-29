@@ -7,7 +7,7 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
-import com.zora.config.RequireRole;
+import com.zora.config.auth.RequireRole;
 import com.zora.service.UserService;
 import com.zora.utils.ResponseUtil;
 

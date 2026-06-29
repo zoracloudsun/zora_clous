@@ -14,7 +14,7 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.zora.config.LoginInterceptor;
+import com.zora.config.auth.LoginInterceptor;
 import com.zora.utils.JwtUtil;
 import com.zora.utils.ResponseUtil;
 

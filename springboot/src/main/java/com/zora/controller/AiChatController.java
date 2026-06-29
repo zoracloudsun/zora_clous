@@ -35,7 +35,7 @@ public class AiChatController {
     @Operation(summary = "SSE 流式对话", description = "发送消息并以 SSE (text/event-stream) 流式返回 AI 回复。" +
             "每个 token 通过 SSE data 事件逐字推送，支持传入 conversationId 继续已有对话，不传则自动创建新对话。" +
             "消息长度限制 4000 字符（约 2000 中文字）")
-    @com.zora.config.TrackAction("message_send")
+    @com.zora.config.tracking.TrackAction("message_send")
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> streamChat(
             @RequestBody Map<String, Object> body,
@@ -68,7 +68,7 @@ public class AiChatController {
     }
 
     @Operation(summary = "新建对话", description = "创建一个新的 AI 对话会话，可选传入自定义标题，不传则使用默认标题「新对话」")
-    @com.zora.config.TrackAction("conv_create")
+    @com.zora.config.tracking.TrackAction("conv_create")
     @PostMapping("/conversations")
     public ResponseUtil createConversation(
             @RequestBody Map<String, String> body,

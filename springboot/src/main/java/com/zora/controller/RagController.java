@@ -35,7 +35,7 @@ public class RagController {
     // ==================== 知识库 CRUD ====================
 
     @Operation(summary = "创建知识库", description = "创建一个新的知识库，用于存放文档。名称不能为空且不超过200字符。")
-    @com.zora.config.TrackAction("kb_upload")
+    @com.zora.config.tracking.TrackAction("kb_upload")
     @PostMapping("/knowledge-bases")
     public ResponseUtil createKnowledgeBase(
             @RequestBody Map<String, String> body,
@@ -129,7 +129,7 @@ public class RagController {
 
     @Operation(summary = "检索知识库", description = "在指定知识库中检索与查询文本相关的文本块。" +
             "返回相关性分数、来源文件名和文本内容。用于测试检索效果。")
-    @com.zora.config.TrackAction("kb_query")
+    @com.zora.config.tracking.TrackAction("kb_query")
     @PostMapping("/knowledge-bases/{id}/query")
     public ResponseUtil queryKnowledgeBase(
             @Parameter(description = "知识库 ID", required = true, example = "1") @PathVariable Long id,

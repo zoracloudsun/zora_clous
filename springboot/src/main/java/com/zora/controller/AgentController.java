@@ -82,7 +82,7 @@ public class AgentController {
                     "返回 SSE (text/event-stream) 流，事件类型包括 thinking（思考）、tool_call（工具调用）、" +
                     "tool_result（工具结果）、token（回答片段）、done（完成）。" +
                     "消息长度限制 4000 字符。支持传入 conversationId 继续已有对话。")
-    @com.zora.config.TrackAction("agent_call")
+    @com.zora.config.tracking.TrackAction("agent_call")
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> agentStreamChat(
             @RequestBody Map<String, Object> body,

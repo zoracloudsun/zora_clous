@@ -10,8 +10,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.method.HandlerMethod;
 
-import com.zora.config.RequireRole;
-import com.zora.config.RoleInterceptor;
+import com.zora.config.auth.RequireRole;
+import com.zora.config.auth.RoleInterceptor;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;

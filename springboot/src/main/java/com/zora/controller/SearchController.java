@@ -30,7 +30,7 @@ public class SearchController {
                     "基于 MySQL FULLTEXT + ngram parser 实现中文分词，结果按相关性降序排列。" +
                     "关键词自动高亮（用 &lt;mark&gt; 标签包裹）。"
     )
-    @com.zora.config.TrackAction("search_query")
+    @com.zora.config.tracking.TrackAction("search_query")
     @GetMapping("/messages")
     public ResponseUtil searchMessages(
             @Parameter(description = "搜索关键词（必填，最多 200 字符）", required = true, example = "Spring Boot")
