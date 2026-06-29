@@ -1,6 +1,6 @@
-# Spring Boot + Vue3 全栈项目：认证系统 + AI 智能对话 + RAG 知识库 + AI Agent + 智能搜索与分析
+# 🤖 AI 全栈智能平台：认证系统 + AI 智能对话 + RAG 知识库 + AI Agent + 智能搜索与分析
 
-> 前后端分离的全栈 AI 对话平台 | 个人/家庭/小团队专属 AI Agent | 2026
+> 前后端分离的Spring Boot + Vue3 全栈 AI 对话平台 | 个人/家庭/小团队专属 AI Agent | 2026
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.11-brightgreen)](https://spring.io/projects/spring-boot)
 [![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D)](https://vuejs.org/)
@@ -20,13 +20,13 @@
 
 一套**生产级**前后端分离的全栈 AI 对话平台，集成用户认证、大模型对话（多模型支持）、RAG 知识库、AI Agent 智能体、智能搜索与分析。
 
-| 系统                  | 说明                                                                                                                                                    |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🔐**用户认证系统**    | 图形验证码、邮箱验证码注册、JWT 双 Token 鉴权、微信 OAuth 扫码登录、RBAC 角色权限控制、暴力破解防护                                                     |
-| 🤖**AI 智能对话**     | 多模型支持（DeepSeek / OpenAI / Ollama / 硅基流动等）、SSE 流式传输、多轮上下文对话、Markdown + 代码高亮、对话历史管理、模型选择器                        |
-| 📚**RAG 知识库**      | 文档上传 → 文本提取 → 分块 → Embedding 向量化 → 检索增强生成，让 AI 基于用户自己的文档回答                                                              |
-| 🧠**AI Agent 智能体** | LangChain4j Tool Calling，AI 可自主调用工具（搜索/计算/代码执行），推理可视化面板，多 Agent 协作（Supervisor → 专家 → 聚合），长期记忆摘要               |
-| 🔍**智能搜索与分析**  | MySQL FULLTEXT 全文搜索（ngram 中文分词）+ ECharts 数据仪表盘 + 用户行为追踪（AOP + @TrackAction）+ 智能推荐                                            |
+| 系统                  | 说明                                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 🔐**用户认证系统**    | 图形验证码、邮箱验证码注册、JWT 双 Token 鉴权、微信 OAuth 扫码登录、RBAC 角色权限控制、暴力破解防护                                        |
+| 🤖**AI 智能对话**     | 多模型支持（DeepSeek / OpenAI / Ollama / 硅基流动等）、SSE 流式传输、多轮上下文对话、Markdown + 代码高亮、对话历史管理、模型选择器         |
+| 📚**RAG 知识库**      | 文档上传 → 文本提取 → 分块 → Embedding 向量化 → 检索增强生成，让 AI 基于用户自己的文档回答                                                 |
+| 🧠**AI Agent 智能体** | LangChain4j Tool Calling，AI 可自主调用工具（搜索/计算/代码执行），推理可视化面板，多 Agent 协作（Supervisor → 专家 → 聚合），长期记忆摘要 |
+| 🔍**智能搜索与分析**  | MySQL FULLTEXT 全文搜索（ngram 中文分词）+ ECharts 数据仪表盘 + 用户行为追踪（AOP + @TrackAction）+ 智能推荐                               |
 
 - **后端**：Spring Boot 3.5.11 + MyBatis-Plus 3.5.12 + MySQL 8 + Redis 7 + LangChain4j 1.15.0 + Apache Tika + Tavily Search + exp4j + JJWT 0.12 + Spring AOP
 - **前端**：Vue 3.5 + Vite 8 + Element Plus 2.14 + Vue Router 4 + Axios + marked + highlight.js + DOMPurify + ECharts 6
@@ -51,16 +51,16 @@
 
 ### AI 智能对话
 
-| 功能             | 说明                                                         |
-| ---------------- | ------------------------------------------------------------ |
-| 🤖 多模型支持    | DeepSeek-V3 / DeepSeek-R1 / OpenAI GPT / Ollama 本地模型等   |
-| 🔄 模型选择器    | 前端 el-dropdown 切换模型，无需修改配置重启                  |
-| 📡 SSE 流式传输  | 逐字输出，打字机效果，120秒超时支持长回复                    |
-| 📝 Markdown 渲染 | 标题、列表、表格、引用、代码块（190+ 语言语法高亮）          |
-| 🔒 XSS 安全过滤  | DOMPurify 过滤 AI 输出中的潜在恶意 HTML/JS                   |
-| 💬 多轮上下文    | 自动携带最近 20 条历史消息，支持连续对话                     |
+| 功能             | 说明                                                           |
+| ---------------- | -------------------------------------------------------------- |
+| 🤖 多模型支持    | DeepSeek-V3 / DeepSeek-R1 / OpenAI GPT / Ollama 本地模型等     |
+| 🔄 模型选择器    | 前端 el-dropdown 切换模型，无需修改配置重启                    |
+| 📡 SSE 流式传输  | 逐字输出，打字机效果，120秒超时支持长回复                      |
+| 📝 Markdown 渲染 | 标题、列表、表格、引用、代码块（190+ 语言语法高亮）            |
+| 🔒 XSS 安全过滤  | DOMPurify 过滤 AI 输出中的潜在恶意 HTML/JS                     |
+| 💬 多轮上下文    | 自动携带最近 20 条历史消息，支持连续对话                       |
 | 📂 对话管理      | 新建、切换、删除、回收站恢复、永久删除、批量操作、自动生成标题 |
-| 🛑 中途停止      | 随时停止 AI 生成，已输出内容保留                             |
+| 🛑 中途停止      | 随时停止 AI 生成，已输出内容保留                               |
 
 ### RAG 知识库
 
@@ -108,18 +108,18 @@
 
 ### 环境要求
 
-| 组件              | 版本 | 用途                                        |
-| ----------------- | ---- | ------------------------------------------- |
-| JDK               | 21+  | Spring Boot 3.x                             |
-| MySQL             | 8.x  | 数据持久化                                  |
-| Redis             | 7.x  | Token 缓存 + 验证码 + 向量状态              |
-| Node.js           | 18+  | 前端构建                                    |
-| Docker            | —    | 一键启动（可选，替代手动安装）              |
+| 组件              | 版本 | 用途                                                |
+| ----------------- | ---- | --------------------------------------------------- |
+| JDK               | 21+  | Spring Boot 3.x                                     |
+| MySQL             | 8.x  | 数据持久化                                          |
+| Redis             | 7.x  | Token 缓存 + 验证码 + 向量状态                      |
+| Node.js           | 18+  | 前端构建                                            |
+| Docker            | —    | 一键启动（可选，替代手动安装）                      |
 | AI API Key        | —    | 任一 OpenAI 兼容提供商（DeepSeek/OpenAI/Ollama 等） |
-| Embedding API Key | —    | RAG 向量嵌入（硅基流动推荐，国内直连）      |
-| 163邮箱           | —    | 发送验证码（可选，需开启 SMTP）             |
-| 微信测试号        | —    | 微信扫码登录（可选）                        |
-| Tavily API Key    | —    | Agent 网页搜索工具（可选，免费 1000 次/月） |
+| Embedding API Key | —    | RAG 向量嵌入（硅基流动推荐，国内直连）              |
+| 163邮箱           | —    | 发送验证码（可选，需开启 SMTP）                     |
+| 微信测试号        | —    | 微信扫码登录（可选）                                |
+| Tavily API Key    | —    | Agent 网页搜索工具（可选，免费 1000 次/月）         |
 
 ### 1. 克隆项目
 
@@ -234,11 +234,11 @@ npm run dev                   # → http://localhost:4000
 
 #### 4.4 热加载原理
 
-| 组件        | 工具                 | 行为                                                    |
-| ----------- | -------------------- | ------------------------------------------------------- |
-| 后端 Java   | spring-boot-devtools | 保存文件 → Spring 自动重启（2-3s）                      |
-| 前端 Vue    | Vite HMR             | 保存文件 → 浏览器原地更新组件（无刷新、无状态丢失）     |
-| MySQL/Redis | Docker               | 无代码变更 → 启动一次，保持运行                         |
+| 组件        | 工具                 | 行为                                                |
+| ----------- | -------------------- | --------------------------------------------------- |
+| 后端 Java   | spring-boot-devtools | 保存文件 → Spring 自动重启（2-3s）                  |
+| 前端 Vue    | Vite HMR             | 保存文件 → 浏览器原地更新组件（无刷新、无状态丢失） |
+| MySQL/Redis | Docker               | 无代码变更 → 启动一次，保持运行                     |
 
 #### 4.5 运行测试
 
@@ -447,71 +447,71 @@ npm run dev                   # → http://localhost:4000
 
 ### 用户认证 — `/user/**`
 
-| 方法 | 路径                              | 认证               | 说明                                  |
-| ---- | --------------------------------- | :----------------: | ------------------------------------- |
-| GET  | `/user/captcha`                   | 否                 | 获取图形验证码                        |
-| POST | `/user/send-code`                 | 否                 | 发送邮箱验证码                        |
-| POST | `/user/register`                  | 否                 | 邮箱验证码注册                        |
-| POST | `/user/login`                     | 否                 | 密码登录（5次失败锁定）               |
-| POST | `/user/logout`                    | accessToken        | 登出                                  |
-| POST | `/user/refresh`                   | refreshToken       | 刷新 accessToken（强制 type=refresh） |
-| GET  | `/user/me`                        | accessToken        | 获取当前用户信息                      |
-| POST | `/user/wechat/qrcode`             | 否                 | 生成微信扫码场景                      |
-| GET  | `/user/wechat/check`              | 否                 | 轮询扫码状态                          |
-| GET  | `/user/wechat/callback`           | 否                 | 微信 OAuth 回调                       |
-| POST | `/user/wechat/bind-email`         | 否                 | 微信扫码后绑定邮箱                    |
-| POST | `/user/forgot-password/send-code` | 否                 | 发送密码重置验证码                    |
-| POST | `/user/forgot-password/reset`     | 否                 | 重置密码                              |
-| GET  | `/user/admin/users`               | accessToken + admin | 管理员分页查询用户                   |
+| 方法 | 路径                              |        认证         | 说明                                  |
+| ---- | --------------------------------- | :-----------------: | ------------------------------------- |
+| GET  | `/user/captcha`                   |         否          | 获取图形验证码                        |
+| POST | `/user/send-code`                 |         否          | 发送邮箱验证码                        |
+| POST | `/user/register`                  |         否          | 邮箱验证码注册                        |
+| POST | `/user/login`                     |         否          | 密码登录（5次失败锁定）               |
+| POST | `/user/logout`                    |     accessToken     | 登出                                  |
+| POST | `/user/refresh`                   |    refreshToken     | 刷新 accessToken（强制 type=refresh） |
+| GET  | `/user/me`                        |     accessToken     | 获取当前用户信息                      |
+| POST | `/user/wechat/qrcode`             |         否          | 生成微信扫码场景                      |
+| GET  | `/user/wechat/check`              |         否          | 轮询扫码状态                          |
+| GET  | `/user/wechat/callback`           |         否          | 微信 OAuth 回调                       |
+| POST | `/user/wechat/bind-email`         |         否          | 微信扫码后绑定邮箱                    |
+| POST | `/user/forgot-password/send-code` |         否          | 发送密码重置验证码                    |
+| POST | `/user/forgot-password/reset`     |         否          | 重置密码                              |
+| GET  | `/user/admin/users`               | accessToken + admin | 管理员分页查询用户                    |
 
 ### AI 对话 — `/ai/**` + `/agent/**`
 
-| 方法   | 路径                               | 说明                                   | 认证 |
-| ------ | ---------------------------------- | -------------------------------------- | :--: |
-| GET    | `/ai/models`                       | 获取可用模型列表（多模型支持）         |  否  |
-| POST   | `/ai/chat/stream`                  | SSE 流式对话                           |  ✅  |
-| POST   | `/ai/chat/rag-stream`              | SSE RAG 流式对话                       |  ✅  |
-| GET    | `/ai/conversations`                | 获取对话列表                           |  ✅  |
-| POST   | `/ai/conversations`                | 新建对话                               |  ✅  |
-| GET    | `/ai/conversations/{id}`           | 获取对话消息                           |  ✅  |
-| DELETE | `/ai/conversations/{id}`           | 删除对话（移至回收站）                 |  ✅  |
-| POST   | `/ai/conversations/{id}/restore`   | 恢复已删除对话                         |  ✅  |
-| DELETE | `/ai/conversations/{id}/permanent` | 永久删除对话                           |  ✅  |
-| POST   | `/ai/conversations/batch-delete`   | 批量软删除（最多 50 个）               |  ✅  |
-| POST   | `/ai/conversations/batch-restore`  | 批量恢复                               |  ✅  |
-| POST   | `/ai/conversations/batch-permanent-delete` | 批量永久删除                     |  ✅  |
-| POST   | `/agent/chat/stream`               | Agent SSE 流式对话（工具调用+结构化事件）|  ✅  |
+| 方法   | 路径                                       | 说明                                      | 认证 |
+| ------ | ------------------------------------------ | ----------------------------------------- | :--: |
+| GET    | `/ai/models`                               | 获取可用模型列表（多模型支持）            |  否  |
+| POST   | `/ai/chat/stream`                          | SSE 流式对话                              |  ✅  |
+| POST   | `/ai/chat/rag-stream`                      | SSE RAG 流式对话                          |  ✅  |
+| GET    | `/ai/conversations`                        | 获取对话列表                              |  ✅  |
+| POST   | `/ai/conversations`                        | 新建对话                                  |  ✅  |
+| GET    | `/ai/conversations/{id}`                   | 获取对话消息                              |  ✅  |
+| DELETE | `/ai/conversations/{id}`                   | 删除对话（移至回收站）                    |  ✅  |
+| POST   | `/ai/conversations/{id}/restore`           | 恢复已删除对话                            |  ✅  |
+| DELETE | `/ai/conversations/{id}/permanent`         | 永久删除对话                              |  ✅  |
+| POST   | `/ai/conversations/batch-delete`           | 批量软删除（最多 50 个）                  |  ✅  |
+| POST   | `/ai/conversations/batch-restore`          | 批量恢复                                  |  ✅  |
+| POST   | `/ai/conversations/batch-permanent-delete` | 批量永久删除                              |  ✅  |
+| POST   | `/agent/chat/stream`                       | Agent SSE 流式对话（工具调用+结构化事件） |  ✅  |
 
 ### RAG 知识库 — `/rag/**`
 
-| 方法   | 路径                                                      | 说明                         | 认证 |
-| ------ | --------------------------------------------------------- | ---------------------------- | :--: |
-| POST   | `/rag/knowledge-bases`                                    | 创建知识库                   |  ✅  |
-| GET    | `/rag/knowledge-bases`                                    | 列出用户的知识库             |  ✅  |
-| GET    | `/rag/knowledge-bases/{id}`                               | 获取知识库详情               |  ✅  |
-| PUT    | `/rag/knowledge-bases/{id}`                               | 更新知识库                   |  ✅  |
-| DELETE | `/rag/knowledge-bases/{id}`                               | 软删除知识库                 |  ✅  |
-| POST   | `/rag/knowledge-bases/{id}/documents`                     | 上传文档（≤10MB）            |  ✅  |
-| POST   | `/rag/knowledge-bases/{id}/query`                         | 测试检索                     |  ✅  |
-| GET    | `/rag/recycle-bin`                                        | 知识库回收站                 |  ✅  |
-| PUT    | `/rag/recycle-bin/{kbId}/restore`                         | 恢复知识库                   |  ✅  |
-| DELETE | `/rag/recycle-bin/{kbId}`                                 | 永久删除知识库               |  ✅  |
-| ...    | （共 16 个端点，含文档级回收站）                          |                              |      |
+| 方法   | 路径                                  | 说明              | 认证 |
+| ------ | ------------------------------------- | ----------------- | :--: |
+| POST   | `/rag/knowledge-bases`                | 创建知识库        |  ✅  |
+| GET    | `/rag/knowledge-bases`                | 列出用户的知识库  |  ✅  |
+| GET    | `/rag/knowledge-bases/{id}`           | 获取知识库详情    |  ✅  |
+| PUT    | `/rag/knowledge-bases/{id}`           | 更新知识库        |  ✅  |
+| DELETE | `/rag/knowledge-bases/{id}`           | 软删除知识库      |  ✅  |
+| POST   | `/rag/knowledge-bases/{id}/documents` | 上传文档（≤10MB） |  ✅  |
+| POST   | `/rag/knowledge-bases/{id}/query`     | 测试检索          |  ✅  |
+| GET    | `/rag/recycle-bin`                    | 知识库回收站      |  ✅  |
+| PUT    | `/rag/recycle-bin/{kbId}/restore`     | 恢复知识库        |  ✅  |
+| DELETE | `/rag/recycle-bin/{kbId}`             | 永久删除知识库    |  ✅  |
+| ...    | （共 16 个端点，含文档级回收站）      |                   |      |
 
 ### 智能搜索与分析 — `/search/**` `/statistics/**` `/recommend/**`
 
-| 方法 | 路径                             | 说明                                          | 认证 |
-| ---- | -------------------------------- | --------------------------------------------- | :--: |
-| GET  | `/search/messages`               | MySQL FULLTEXT 全文搜索 + 高亮                |  ✅  |
-| GET  | `/statistics/overview`           | 数据总览（会话/消息/活跃天数/AI 使用率）      |  ✅  |
-| GET  | `/statistics/message-trend`      | 消息趋势（user/assistant 双线折线图）         |  ✅  |
-| GET  | `/statistics/active-hours`       | 24 小时活跃热力图                             |  ✅  |
-| GET  | `/statistics/conversation-trend` | 对话创建趋势                                  |  ✅  |
-| GET  | `/statistics/message-ratio`      | 用户 vs AI 消息占比（饼图）                   |  ✅  |
-| GET  | `/statistics/knowledge-stats`    | 知识库使用统计                                |  ✅  |
-| GET  | `/statistics/action-ranking`     | 功能使用排行（user_action_log 聚合）          |  ✅  |
-| GET  | `/statistics/weekly-activity`    | 最近 7 天活跃度                               |  ✅  |
-| GET  | `/recommend/suggestions`         | 智能推荐（相关对话/建议问题/热门知识库）      |  ✅  |
+| 方法 | 路径                             | 说明                                     | 认证 |
+| ---- | -------------------------------- | ---------------------------------------- | :--: |
+| GET  | `/search/messages`               | MySQL FULLTEXT 全文搜索 + 高亮           |  ✅  |
+| GET  | `/statistics/overview`           | 数据总览（会话/消息/活跃天数/AI 使用率） |  ✅  |
+| GET  | `/statistics/message-trend`      | 消息趋势（user/assistant 双线折线图）    |  ✅  |
+| GET  | `/statistics/active-hours`       | 24 小时活跃热力图                        |  ✅  |
+| GET  | `/statistics/conversation-trend` | 对话创建趋势                             |  ✅  |
+| GET  | `/statistics/message-ratio`      | 用户 vs AI 消息占比（饼图）              |  ✅  |
+| GET  | `/statistics/knowledge-stats`    | 知识库使用统计                           |  ✅  |
+| GET  | `/statistics/action-ranking`     | 功能使用排行（user_action_log 聚合）     |  ✅  |
+| GET  | `/statistics/weekly-activity`    | 最近 7 天活跃度                          |  ✅  |
+| GET  | `/recommend/suggestions`         | 智能推荐（相关对话/建议问题/热门知识库） |  ✅  |
 
 > 📖 在线调试：启动后访问 `http://localhost:8080/doc.html`（Knife4j 接口文档，支持在线发送请求）
 
@@ -615,37 +615,37 @@ Service 抛出异常 → GlobalExceptionHandler → ResponseUtil JSON
 
 ### 后端
 
-| 技术            | 版本     | 用途                                             |
-| --------------- | -------- | ------------------------------------------------ |
-| Spring Boot     | 3.5.11   | 基础框架                                         |
-| MyBatis-Plus    | 3.5.12   | ORM（BaseMapper + 分页插件）                     |
-| MySQL           | 8.x      | 持久化存储 + FULLTEXT 全文搜索（ngram）          |
-| Redis           | 7.x      | Token 缓存 + 验证码 + 行为计数 + 统计缓存        |
-| LangChain4j     | 1.15.0   | AI 应用框架（流式对话 + Embedding + Tool Calling）|
-| DeepSeek Chat   | V3/R1    | 默认大语言模型（OpenAI 兼容 API）                |
-| Apache Tika     | 2.9.2    | 文档文本提取（PDF/DOCX/DOC/TXT/MD）              |
-| Tavily Search   | —        | Agent 网页搜索工具 API                           |
-| exp4j           | 0.4.8    | Agent 安全数学表达式求值引擎                     |
-| Spring Security | 6.x      | BCrypt 密码加密                                  |
-| jjwt            | 0.12.6   | JWT 生成/解析/类型校验                           |
-| JavaMail        | 3.5.11   | 163 邮箱 SMTP 验证码发送                         |
-| Knife4j         | 4.5.0    | OpenAPI 3 接口文档 + 在线调试                    |
-| Testcontainers  | 1.20.x   | 集成测试（MySQL 8 + Redis 7 容器）               |
+| 技术            | 版本   | 用途                                               |
+| --------------- | ------ | -------------------------------------------------- |
+| Spring Boot     | 3.5.11 | 基础框架                                           |
+| MyBatis-Plus    | 3.5.12 | ORM（BaseMapper + 分页插件）                       |
+| MySQL           | 8.x    | 持久化存储 + FULLTEXT 全文搜索（ngram）            |
+| Redis           | 7.x    | Token 缓存 + 验证码 + 行为计数 + 统计缓存          |
+| LangChain4j     | 1.15.0 | AI 应用框架（流式对话 + Embedding + Tool Calling） |
+| DeepSeek Chat   | V3/R1  | 默认大语言模型（OpenAI 兼容 API）                  |
+| Apache Tika     | 2.9.2  | 文档文本提取（PDF/DOCX/DOC/TXT/MD）                |
+| Tavily Search   | —      | Agent 网页搜索工具 API                             |
+| exp4j           | 0.4.8  | Agent 安全数学表达式求值引擎                       |
+| Spring Security | 6.x    | BCrypt 密码加密                                    |
+| jjwt            | 0.12.6 | JWT 生成/解析/类型校验                             |
+| JavaMail        | 3.5.11 | 163 邮箱 SMTP 验证码发送                           |
+| Knife4j         | 4.5.0  | OpenAPI 3 接口文档 + 在线调试                      |
+| Testcontainers  | 1.20.x | 集成测试（MySQL 8 + Redis 7 容器）                 |
 
 ### 前端
 
-| 技术         | 版本 | 用途                                           |
-| ------------ | ---- | ---------------------------------------------- |
-| Vue          | 3.5  | 前端框架（Composition API + `<script setup>`） |
-| Vite         | 8.x  | 构建工具                                       |
-| Element Plus | 2.14 | UI 组件库（按需导入）                          |
-| Vue Router   | 4.x  | 前端路由 + 导航守卫                            |
-| Axios        | 1.16 | HTTP 客户端 + 拦截器                           |
-| qrcode       | 1.5  | 前端 Canvas 二维码生成                         |
-| marked       | —    | Markdown → HTML 转换                           |
-| highlight.js | —    | 代码语法高亮（190+ 语言）                      |
-| DOMPurify    | —    | XSS 防护                                       |
-| ECharts      | 6    | 数据可视化图表（折线图/柱状图/饼图）           |
+| 技术         | 版本 | 用途                                          |
+| ------------ | ---- | --------------------------------------------- |
+| Vue          | 3.5  | 前端框架（Composition API +`<script setup>`） |
+| Vite         | 8.x  | 构建工具                                      |
+| Element Plus | 2.14 | UI 组件库（按需导入）                         |
+| Vue Router   | 4.x  | 前端路由 + 导航守卫                           |
+| Axios        | 1.16 | HTTP 客户端 + 拦截器                          |
+| qrcode       | 1.5  | 前端 Canvas 二维码生成                        |
+| marked       | —    | Markdown → HTML 转换                          |
+| highlight.js | —    | 代码语法高亮（190+ 语言）                     |
+| DOMPurify    | —    | XSS 防护                                      |
+| ECharts      | 6    | 数据可视化图表（折线图/柱状图/饼图）          |
 
 ---
 
@@ -667,11 +667,11 @@ mvn test -Dtest="RagPipelineIntegrationTest"     # 5 tests — RAG 管道
 
 **三层 Mock 策略**：
 
-| 层级                          | 模式                                | 适用场景            |
-| ----------------------------- | ----------------------------------- | ------------------- |
-| 纯 JUnit 5                    | `@Test` only                        | 无依赖的工具类      |
-| Mockito + ReflectionTestUtils | `@InjectMocks` / `@Mock` / `@Spy`   | Service + 拦截器    |
-| Standalone MockMvc            | `MockMvcBuilders.standaloneSetup()` | Controller + 异常处理|
+| 层级                          | 模式                                | 适用场景              |
+| ----------------------------- | ----------------------------------- | --------------------- |
+| 纯 JUnit 5                    | `@Test` only                        | 无依赖的工具类        |
+| Mockito + ReflectionTestUtils | `@InjectMocks` / `@Mock` / `@Spy`   | Service + 拦截器      |
+| Standalone MockMvc            | `MockMvcBuilders.standaloneSetup()` | Controller + 异常处理 |
 
 **集成测试**（Phase 5.4）：Testcontainers 启动真实 MySQL 8 + Redis 7 容器，验证组件协作边界。AI 模型 Bean 用 `@MockitoBean` mock，不调外部 API。
 
@@ -708,6 +708,7 @@ AI_PROVIDERS_2_MODELS_0_NAME=Qwen2.5
 ## 路线图
 
 ### ✅ Phase 1：用户认证系统
+
 - 图形验证码 + 邮箱验证码注册 + 密码登录
 - JWT 双 Token 鉴权 + 无感刷新 + 单设备登录
 - 微信 OAuth 扫码登录 + RBAC 角色权限
@@ -715,12 +716,14 @@ AI_PROVIDERS_2_MODELS_0_NAME=Qwen2.5
 - 171 个单元测试
 
 ### ✅ Phase 2：AI 智能对话 + RAG 知识库
+
 - LangChain4j + DeepSeek 集成 + SSE 流式传输 + Markdown 渲染
 - Apache Tika 文档解析 + 递归分块 + OpenAI 兼容 Embedding
 - 自实现余弦相似度向量存储 + 启动向量索引重建
 - 知识库管理界面 + 两级回收站 + 212 个单元测试
 
 ### ✅ Phase 3：AI Agent 智能体
+
 - 两阶段流式架构 + ReAct 循环 + 结构化 SSE 事件协议
 - 内置工具：WebSearchTool + MathTool + CodeExecutionTool
 - Agent 推理可视化面板 + 思考指示器
@@ -729,14 +732,16 @@ AI_PROVIDERS_2_MODELS_0_NAME=Qwen2.5
 - 166 个 Agent 相关测试
 
 ### ✅ Phase 4：智能搜索与分析
+
 - MySQL FULLTEXT 全文搜索（ngram 中文分词）+ 高亮
 - ECharts 6 数据仪表盘（8 个统计端点）+ Redis 缓存
 - 用户行为分析（AOP + @TrackAction + @Async 异步日志）
 - 智能推荐（Bigram 分词 + FULLTEXT 匹配）
 
 ### ✅ Phase 5：代码质量重构
+
 - **5.1** Chat.vue 拆分为 7 个子组件 + 2 个 composables
-- **5.2** 后端规范化：UserContext（消除 6 处重复代码）+ PageResult<T> 通用分页 + ErrorCode 枚举 + config 子包分类 + entity/dto 子包
+- **5.2** 后端规范化：UserContext（消除 6 处重复代码）+ PageResult<T></t> 通用分页 + ErrorCode 枚举 + config 子包分类 + entity/dto 子包
 - **5.3** 多模型支持：ModelRegistry + GET /ai/models + 前端模型选择器
 - **5.4** 集成测试基础设施：Testcontainers + BruteForce(5) + TokenFlow(5) + RAG(5)
 - **5.5** 性能优化：vue-virtual-scroller 依赖就绪（待全量集成）
@@ -748,15 +753,15 @@ AI_PROVIDERS_2_MODELS_0_NAME=Qwen2.5
 | 文档                                                                                  | 说明                                                     |
 | ------------------------------------------------------------------------------------- | -------------------------------------------------------- |
 | [CLAUDE.md](CLAUDE.md)                                                                | Claude Code 项目开发指南（架构规范 + 关键约定）          |
-| [01-authentication-system.md](Project%20Detail%20Guide/01-authentication-system.md)   | 用户认证系统 28 步构建教程                                |
+| [01-authentication-system.md](Project%20Detail%20Guide/01-authentication-system.md)   | 用户认证系统 28 步构建教程                               |
 | [02-ai-chat.md](Project%20Detail%20Guide/02-ai-chat.md)                               | AI 智能对话：DeepSeek + SSE 流式 + Markdown 渲染         |
 | [03-rag-knowledge-base.md](Project%20Detail%20Guide/03-rag-knowledge-base.md)         | RAG 知识库：Tika + Embedding + 向量检索 + 两级回收站     |
 | [04-ai-agent.md](Project%20Detail%20Guide/04-ai-agent.md)                             | AI Agent 智能体：Tool Calling + 多 Agent 编排 + 记忆系统 |
 | [05-smart-search-analytics.md](Project%20Detail%20Guide/05-smart-search-analytics.md) | 智能搜索与分析：FULLTEXT + ECharts + 行为追踪 + 推荐     |
 | [WECHAT_SETUP_GUIDE.md](Project%20Detail%20Guide/WECHAT_SETUP_GUIDE.md)               | 微信扫码登录完整配置指南                                 |
-| [P0_SECURITY_FIX.md](FIX_Document/P0_SECURITY_FIX.md)                                 | P0 安全修复：Token 类型校验 + 暴力破解防护                |
-| [P1_SECURITY_FIX.md](FIX_Document/P1_SECURITY_FIX.md)                                 | P1 安全修复                                               |
-| [LOCAL_VS_DOCKER_PROXY.md](FIX_Document/LOCAL_VS_DOCKER_PROXY.md)                     | 本地开发 vs Docker 代理配置同步指南                       |
+| [P0_SECURITY_FIX.md](FIX_Document/P0_SECURITY_FIX.md)                                 | P0 安全修复：Token 类型校验 + 暴力破解防护               |
+| [P1_SECURITY_FIX.md](FIX_Document/P1_SECURITY_FIX.md)                                 | P1 安全修复                                              |
+| [LOCAL_VS_DOCKER_PROXY.md](FIX_Document/LOCAL_VS_DOCKER_PROXY.md)                     | 本地开发 vs Docker 代理配置同步指南                      |
 | [Windows_Reserved_Port_8080_FIX.md](FIX_Document/Windows_Reserved_Port_8080_FIX.md)   | Windows 保留端口 8080 排查修复                           |
 
 ---

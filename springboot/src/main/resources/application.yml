@@ -121,16 +121,18 @@ ai:
           name: DeepSeek-V4-Flash
         - id: deepseek-v4-pro
           name: DeepSeek-V4-Pro
-    # 通义千问 — 取消注释并填入 API Key 即可启用
-    # qwen:
-    #   type: openai-compatible
-    #   base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
-    #   api-key: ${QWEN_API_KEY:}
-    #   models:
-    #     - id: qwen-plus
-    #       name: 通义千问 Plus
-    #     - id: qwen-max
-    #       name: 通义千问 Max
+    # 通义千问（百炼）— 取消注释并填入 API Key 即可启用
+    #   建议使用业务空间专属域名（性能更优）：https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+    #   旧域名 https://dashscope.aliyuncs.com 仍可用，但不推荐
+    qwen:
+      type: openai-compatible
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api-key: ${QWEN_API_KEY:}
+      models:
+        - id: qwen-plus
+          name: 通义千问 Plus
+        - id: qwen-max
+          name: 通义千问 Max
     # OpenAI — 取消注释并填入 API Key 即可启用
     # openai:
     #   type: openai-compatible
@@ -176,7 +178,7 @@ agent:
     math:
       enabled: ${AGENT_TOOL_MATH:true}
     code-execution:
-      enabled: ${AGENT_TOOL_CODE_EXEC:false}  # 默认关闭（安全考量）
+      enabled: ${AGENT_TOOL_CODE_EXEC:false} # 默认关闭（安全考量）
       timeout-seconds: 5
       max-output-length: 10000
   # Tavily 搜索 API（Phase 3.2 网页搜索工具）
