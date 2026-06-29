@@ -1,5 +1,7 @@
 package com.zora.controller;
 
+import com.zora.entity.dto.PageResult;
+import com.zora.entity.dto.SearchResult;
 import com.zora.exception.GlobalExceptionHandler;
 import com.zora.service.SearchService;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,7 +13,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.util.*;
+import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
@@ -49,11 +51,7 @@ class SearchControllerTest {
         @Test
         @DisplayName("正常搜索：返回 200 + JSON 分页结果")
         void shouldReturn200WithPaginatedResults() throws Exception {
-            Map<String, Object> mockResult = new LinkedHashMap<>();
-            mockResult.put("total", 2L);
-            mockResult.put("page", 1);
-            mockResult.put("size", 20);
-            mockResult.put("list", Collections.emptyList());
+            PageResult<SearchResult> mockResult = new PageResult<>(Collections.emptyList(), 2L, 1, 20);
 
             when(searchService.searchMessages(eq(TEST_EMAIL), eq("Spring"), eq(1), eq(20)))
                     .thenReturn(mockResult);
@@ -72,11 +70,7 @@ class SearchControllerTest {
         @Test
         @DisplayName("无结果搜索：返回 200 + 空列表")
         void shouldReturn200WithEmptyListWhenNoResults() throws Exception {
-            Map<String, Object> mockResult = new LinkedHashMap<>();
-            mockResult.put("total", 0L);
-            mockResult.put("page", 1);
-            mockResult.put("size", 20);
-            mockResult.put("list", Collections.emptyList());
+            PageResult<SearchResult> mockResult = new PageResult<>(Collections.emptyList(), 0L, 1, 20);
 
             when(searchService.searchMessages(eq(TEST_EMAIL), eq("不存在"), anyInt(), anyInt()))
                     .thenReturn(mockResult);
@@ -91,9 +85,7 @@ class SearchControllerTest {
         @Test
         @DisplayName("未认证访问：不传 userEmail → 空指针或 500（拦截器层面的风险）")
         void shouldHandleMissingUserEmail() throws Exception {
-            Map<String, Object> mockResult = new LinkedHashMap<>();
-            mockResult.put("total", 0L);
-            mockResult.put("list", Collections.emptyList());
+            PageResult<SearchResult> mockResult = new PageResult<>(Collections.emptyList(), 0L, 1, 20);
 
             when(searchService.searchMessages(isNull(), eq("test"), anyInt(), anyInt()))
                     .thenReturn(mockResult);

@@ -1,7 +1,7 @@
 package com.zora.service;
 
+import com.zora.entity.dto.PageResult;
 import com.zora.entity.dto.SearchResult;
-import com.zora.entity.User;
 import com.zora.exception.BadRequestException;
 import com.zora.exception.NotFoundException;
 import com.zora.mapper.ChatMessageMapper;
@@ -45,10 +45,7 @@ class SearchServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        User mockUser = new User();
-        mockUser.setId(TEST_USER_ID);
-        mockUser.setEmail(TEST_EMAIL);
-        lenient().when(userContext.getUserId()).thenReturn(mockUser.getId());
+        lenient().when(userContext.getUserId()).thenReturn(TEST_USER_ID);
     }
 
     @Nested
@@ -98,16 +95,14 @@ class SearchServiceImplTest {
             when(chatMessageMapper.fulltextSearch(eq(TEST_USER_ID), anyString(), eq(0L), eq(20)))
                     .thenReturn(List.of(result));
 
-            Map<String, Object> response = searchService.searchMessages(TEST_EMAIL, "Spring Boot", 1, 20);
+            PageResult<SearchResult> response = searchService.searchMessages(TEST_EMAIL, "Spring Boot", 1, 20);
 
-            assertEquals(1L, response.get("total"));
-            assertEquals(1, response.get("page"));
-            assertNotNull(response.get("list"));
-            @SuppressWarnings("unchecked")
-            List<SearchResult> list = (List<SearchResult>) response.get("list");
-            assertEquals(1, list.size());
+            assertEquals(1L, response.getTotal());
+            assertEquals(1, response.getPage());
+            assertNotNull(response.getList());
+            assertEquals(1, response.getList().size());
             // 验证高亮
-            assertTrue(list.get(0).getHighlightContent().contains("<mark>"));
+            assertTrue(response.getList().get(0).getHighlightContent().contains("<mark>"));
         }
 
         @Test
@@ -115,12 +110,10 @@ class SearchServiceImplTest {
         void shouldReturnEmptyListWhenNoMatches() {
             when(chatMessageMapper.fulltextSearchCount(eq(TEST_USER_ID), anyString())).thenReturn(0L);
 
-            Map<String, Object> response = searchService.searchMessages(TEST_EMAIL, "不存在", 1, 20);
+            PageResult<SearchResult> response = searchService.searchMessages(TEST_EMAIL, "不存在", 1, 20);
 
-            assertEquals(0L, response.get("total"));
-            @SuppressWarnings("unchecked")
-            List<SearchResult> list = (List<SearchResult>) response.get("list");
-            assertTrue(list.isEmpty());
+            assertEquals(0L, response.getTotal());
+            assertTrue(response.getList().isEmpty());
         }
     }
 

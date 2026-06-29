@@ -1,16 +1,19 @@
 package com.zora.service.impl;
 
+import com.zora.entity.dto.PageResult;
 import com.zora.entity.dto.SearchResult;
 import com.zora.exception.BadRequestException;
 import com.zora.mapper.ChatMessageMapper;
 import com.zora.service.SearchService;
 import com.zora.utils.UserContext;
 import jakarta.annotation.Resource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
@@ -55,7 +58,7 @@ public class SearchServiceImpl implements SearchService {
     private UserContext userContext;
 
     @Override
-    public Map<String, Object> searchMessages(String email, String keyword, int page, int size) {
+    public PageResult<SearchResult> searchMessages(String email, String keyword, int page, int size) {
         // 1. 获取当前用户 ID
         Integer userId = userContext.getUserId();
 
@@ -91,12 +94,7 @@ public class SearchServiceImpl implements SearchService {
         }
 
         // 7. 构建分页响应
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("total", total);
-        response.put("page", page);
-        response.put("size", size);
-        response.put("list", results);
-        return response;
+        return new PageResult<>(results, total, page, size);
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.zora.service;
 
-import java.util.Map;
+import com.zora.entity.dto.PageResult;
+import com.zora.entity.dto.SearchResult;
 
 /**
  * 全文搜索服务接口
@@ -18,7 +19,7 @@ public interface SearchService {
      * @param keyword 搜索关键词（最大 200 字符）
      * @param page    页码（从 1 开始）
      * @param size    每页数量（默认 20，最大 50）
-     * @return 分页结果 Map：{ total, page, size, list: [SearchResult] }
+     * @return 分页结果 PageResult，包含 list、total、page、size
      */
-    Map<String, Object> searchMessages(String email, String keyword, int page, int size);
+    PageResult<SearchResult> searchMessages(String email, String keyword, int page, int size);
 }
