@@ -287,7 +287,26 @@
           <h1 class="header-title">{{ currentTitle || '新对话' }}</h1>
         </div>
         <div class="header-right">
-          <span class="header-badge">DeepSeek</span>
+          <!-- Phase 5.3: 多模型选择器 -->
+          <el-dropdown v-if="availableModels.length > 0" trigger="click" @command="handleModelSelect">
+            <span class="header-badge model-selector">
+              {{ currentModelName }} <el-icon :size="12" style="margin-left:4px"><ArrowDown /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <template v-for="model in availableModels" :key="model.provider + ':' + model.modelId">
+                  <el-dropdown-item
+                    :command="model"
+                    :class="{ 'is-active': model.modelId === selectedModelId && model.provider === selectedProvider }"
+                  >
+                    <span>{{ model.name }}</span>
+                    <span class="model-provider-tag">{{ model.provider }}</span>
+                  </el-dropdown-item>
+                </template>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+          <span v-else class="header-badge">DeepSeek</span>
         </div>
       </header>
 
@@ -668,6 +687,7 @@ import {
   deleteConversation, streamChat,
   getDeletedConversations, restoreConversation, permanentDeleteConversation,
   batchDeleteConversations, batchRestoreConversations, batchPermanentDeleteConversations,
+  getModels,
 } from '@/api/ai'
 import { streamRagChat, listKnowledgeBases } from '@/api/rag'
 // Phase 3.3: Agent SSE 流式对话
@@ -713,6 +733,25 @@ const selectedKbId = ref(null)
 
 // ==================== Phase 3.3: Agent 智能体状态 ====================
 const agentMode = ref(false)          // Agent 模式开关
+
+// Phase 5.3: 多模型支持
+const availableModels = ref([])
+const selectedProvider = ref('deepseek')
+const selectedModelId = ref('deepseek-chat')
+const currentModelName = computed(() => {
+  const found = availableModels.value.find(m => m.provider === selectedProvider.value && m.modelId === selectedModelId.value)
+  return found ? found.name : 'DeepSeek-V3'
+})
+async function loadModels() {
+  try {
+    const res = await getModels()
+    if (res.data) availableModels.value = res.data
+  } catch { /* 失败静默，使用默认模型 */ }
+}
+function handleModelSelect(model) {
+  selectedProvider.value = model.provider
+  selectedModelId.value = model.modelId
+}
 const reasoningSteps = ref([])        // 推理步骤数组 [{type, content/tool/args, ts}]
 const showReasoning = ref(true)       // 推理面板展开/折叠
 
@@ -1483,7 +1522,7 @@ watch(() => streamingContent.value, () => {
 })
 
 onMounted(() => {
-  loadConversations(); loadKbs(); loadDeletedConversations()
+  loadConversations(); loadKbs(); loadDeletedConversations(); loadModels()
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('click', handleUploadClickOutside)
   // 滚动检测（↓ 按钮显隐）

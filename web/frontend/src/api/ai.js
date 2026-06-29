@@ -137,3 +137,10 @@ export function streamChat(message, conversationId, onToken, onDone, onError) {
 
   return controller
 }
+
+// ==================== 模型管理（Phase 5.3） ====================
+
+/** 获取可用 AI 模型列表 */
+export function getModels() {
+  return request.get('/ai/models')
+}
