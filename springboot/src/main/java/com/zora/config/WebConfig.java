@@ -31,7 +31,8 @@ public class WebConfig implements WebMvcConfigurer {
                                                 "/user/captcha",
                                                 "/user/forgot-password/send-code", "/user/forgot-password/reset",
                                                 "/user/wechat/qrcode", "/user/wechat/check",
-                                                "/user/wechat/callback", "/user/wechat/bind-email")
+                                                "/user/wechat/callback", "/user/wechat/bind-email",
+                                                "/ai/models")
                                 .excludePathPatterns(swaggerPaths);
 
                 // RoleInterceptor 在 LoginInterceptor 之后执行，读取其设置的 request attributes
