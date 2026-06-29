@@ -14,17 +14,40 @@ package com.zora.exception;
 public class BusinessException extends RuntimeException {
     private final Integer code;
     private final Object data;
+    private final ErrorCode errorCode;
 
     public BusinessException(Integer code, String msg) {
         super(msg);
         this.code = code;
         this.data = null;
+        this.errorCode = null;
     }
 
     public BusinessException(Integer code, String msg, Object data) {
         super(msg);
         this.code = code;
         this.data = data;
+        this.errorCode = null;
+    }
+
+    /**
+     * 使用 ErrorCode 枚举的默认消息
+     */
+    public BusinessException(ErrorCode errorCode) {
+        super(errorCode.getDefaultMsg());
+        this.code = errorCode.getCode();
+        this.data = null;
+        this.errorCode = errorCode;
+    }
+
+    /**
+     * ErrorCode + 自定义消息（覆盖默认消息）
+     */
+    public BusinessException(ErrorCode errorCode, String customMsg) {
+        super(customMsg);
+        this.code = errorCode.getCode();
+        this.data = null;
+        this.errorCode = errorCode;
     }
 
     public Integer getCode() {
@@ -33,5 +56,12 @@ public class BusinessException extends RuntimeException {
 
     public Object getData() {
         return data;
+    }
+
+    /**
+     * 获取关联的错误码枚举（仅通过 ErrorCode 构造器创建时有值）
+     */
+    public ErrorCode getErrorCode() {
+        return errorCode;
     }
 }
