@@ -1,7 +1,6 @@
 package com.zora.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
@@ -10,7 +9,6 @@ import java.util.Map;
  * AI 模型配置属性
  * <p>绑定 application.yml 中 {@code ai.*} 配置段。</p>
  */
-@Component
 @ConfigurationProperties(prefix = "ai")
 public class AiProperties {
 

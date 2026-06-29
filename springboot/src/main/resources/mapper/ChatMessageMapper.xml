@@ -8,7 +8,7 @@
         搜索 chat_message.content，JOIN chat_conversation 获取标题
         按相关性分数降序排列，仅搜索当前用户未删除的消息和对话
     -->
-    <select id="fulltextSearch" resultType="com.zora.entity.SearchResult">
+    <select id="fulltextSearch" resultType="com.zora.entity.dto.SearchResult">
         SELECT
             m.id AS messageId,
             m.conversation_id AS conversationId,
