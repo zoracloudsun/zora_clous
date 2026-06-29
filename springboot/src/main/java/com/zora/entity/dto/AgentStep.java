@@ -1,4 +1,4 @@
-package com.zora.entity;
+package com.zora.entity.dto;
 
 /**
  * Agent 推理步骤记录（瞬态 POJO，不持久化）

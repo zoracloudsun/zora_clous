@@ -2,7 +2,7 @@ package com.zora.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.zora.entity.ChatMessage;
-import com.zora.entity.SearchResult;
+import com.zora.entity.dto.SearchResult;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;

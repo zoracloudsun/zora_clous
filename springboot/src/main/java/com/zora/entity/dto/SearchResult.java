@@ -1,4 +1,4 @@
-package com.zora.entity;
+package com.zora.entity.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

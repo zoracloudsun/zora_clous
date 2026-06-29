@@ -1,6 +1,6 @@
 package com.zora.service;
 
-import com.zora.entity.SearchResult;
+import com.zora.entity.dto.SearchResult;
 import com.zora.entity.User;
 import com.zora.exception.BadRequestException;
 import com.zora.exception.NotFoundException;

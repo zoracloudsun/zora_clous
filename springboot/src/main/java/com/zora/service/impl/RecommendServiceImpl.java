@@ -3,6 +3,7 @@ package com.zora.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zora.entity.*;
+import com.zora.entity.dto.SearchResult;
 import com.zora.exception.NotFoundException;
 import com.zora.mapper.*;
 import com.zora.service.RecommendService;
