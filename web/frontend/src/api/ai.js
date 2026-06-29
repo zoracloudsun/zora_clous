@@ -67,7 +67,7 @@ export function batchPermanentDeleteConversations(ids) {
  * @param {function} onError - 出错时的回调
  * @returns {AbortController} 用于取消请求
  */
-export function streamChat(message, conversationId, onToken, onDone, onError) {
+export function streamChat(message, conversationId, onToken, onDone, onError, provider, modelId) {
   const token = getToken()
   const controller = new AbortController()
 
@@ -80,6 +80,8 @@ export function streamChat(message, conversationId, onToken, onDone, onError) {
     body: JSON.stringify({
       message,
       conversationId: conversationId || null,
+      provider: provider || null,
+      modelId: modelId || null,
     }),
     signal: controller.signal,
   })

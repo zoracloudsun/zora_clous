@@ -164,6 +164,10 @@ public class AiChatServiceImpl implements AiChatService {
     @Resource
     private StreamingChatModel streamingChatModel;
 
+    /** 多模型注册中心（Phase 5.3 — 运行时按请求选择模型） */
+    @Resource
+    private com.zora.config.ModelRegistry modelRegistry;
+
     /** 用户表 Mapper（用于根据邮箱查找用户） */
     @Resource
     private UserContext userContext;
@@ -214,7 +218,8 @@ public class AiChatServiceImpl implements AiChatService {
      * @throws NotFoundException   用户不存在
      */
     @Override
-    public Flux<String> streamChat(String email, String userMessage, Long conversationId) {
+    public Flux<String> streamChat(String email, String userMessage, Long conversationId,
+                                    String modelProvider, String modelId) {
         // P1-1: 限流检查 — Redis ZSET 滑动窗口，每用户每分钟最多 10 次
         checkRateLimit(email);
 
@@ -232,6 +237,11 @@ public class AiChatServiceImpl implements AiChatService {
             conversation = findConversation(conversationId, userId);
         }
 
+        // 2.5 记录当前使用的模型（Phase 5.3）
+        conversation.setModelProvider(modelProvider);
+        conversation.setModelId(modelId);
+        conversationMapper.updateById(conversation);
+
         // 3. 保存用户消息到 MySQL（后续 AI 回复也会保存）
         saveMessage(conversation.getId(), "user", userMessage);
 
@@ -247,12 +257,17 @@ public class AiChatServiceImpl implements AiChatService {
             throw new RateLimitException("当前 AI 对话人数较多，请稍后再试");
         }
 
+        // 5.5 按请求选择模型（Phase 5.3 — 前端传入的 provider + modelId）
+        StreamingChatModel selectedModel = (modelProvider != null && modelId != null)
+                ? modelRegistry.getStreamingModel(modelProvider, modelId)
+                : streamingChatModel;
+
         // 6. 流式返回：Flux.create() + StreamingChatResponseHandler 回调
         final Long convId = conversation.getId();
         return Flux.<String>create(emitter -> {
             StringBuilder fullResponse = new StringBuilder();
 
-            streamingChatModel.chat(messages, new StreamingChatResponseHandler() {
+            selectedModel.chat(messages, new StreamingChatResponseHandler() {
                 /**
                  * 收到 AI 的部分响应（每个 token 或几个 token 一次）
                  * JSON 编码后推送到 SSE 流，安全传输换行符和特殊字符
@@ -949,7 +964,7 @@ public class AiChatServiceImpl implements AiChatService {
      */
     @Override
     public Flux<String> streamChatWithRag(String email, String userMessage,
-            Long conversationId, Long knowledgeBaseId) {
+            Long conversationId, Long knowledgeBaseId, String modelProvider, String modelId) {
         // P1-1: 限流检查
         checkRateLimit(email);
 
@@ -984,6 +999,11 @@ public class AiChatServiceImpl implements AiChatService {
             conversation = findConversation(conversationId, userId);
         }
 
+        // 3.5 记录当前使用的模型（Phase 5.3）
+        conversation.setModelProvider(modelProvider);
+        conversation.setModelId(modelId);
+        conversationMapper.updateById(conversation);
+
         // 4. 保存用户消息
         saveMessage(conversation.getId(), "user", userMessage);
 
@@ -1000,12 +1020,17 @@ public class AiChatServiceImpl implements AiChatService {
             throw new RateLimitException("当前 AI 对话人数较多，请稍后再试");
         }
 
+        // 6.5 按请求选择模型（Phase 5.3）
+        StreamingChatModel selectedModel = (modelProvider != null && modelId != null)
+                ? modelRegistry.getStreamingModel(modelProvider, modelId)
+                : streamingChatModel;
+
         // 7. 流式返回（与 streamChat 逻辑完全相同）
         final Long convId = conversation.getId();
         return Flux.<String>create(emitter -> {
             StringBuilder fullResponse = new StringBuilder();
 
-            streamingChatModel.chat(messages, new StreamingChatResponseHandler() {
+            selectedModel.chat(messages, new StreamingChatResponseHandler() {
                 @Override
                 public void onPartialResponse(String partialResponse) {
                     fullResponse.append(partialResponse);

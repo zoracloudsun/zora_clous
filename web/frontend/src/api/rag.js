@@ -112,7 +112,7 @@ export function emptyDocumentRecycleBin(kbId) {
  * @param {function} onError - 出错时的回调
  * @returns {AbortController} 用于取消请求
  */
-export function streamRagChat(message, conversationId, knowledgeBaseId, onToken, onDone, onError) {
+export function streamRagChat(message, conversationId, knowledgeBaseId, onToken, onDone, onError, provider, modelId) {
   const token = getToken()
   const controller = new AbortController()
 
@@ -126,6 +126,8 @@ export function streamRagChat(message, conversationId, knowledgeBaseId, onToken,
       message,
       conversationId: conversationId || null,
       knowledgeBaseId: knowledgeBaseId || null,
+      provider: provider || null,
+      modelId: modelId || null,
     }),
     signal: controller.signal,
   })

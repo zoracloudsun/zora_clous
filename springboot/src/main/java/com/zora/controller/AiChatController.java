@@ -49,6 +49,8 @@ public class AiChatController {
         Long conversationId = body.get("conversationId") != null
                 ? Long.valueOf(body.get("conversationId").toString())
                 : null;
+        String modelProvider = (String) body.getOrDefault("provider", null);
+        String modelId = (String) body.getOrDefault("modelId", null);
 
         // P1-2: 消息非空 + 长度校验
         if (message == null || message.isBlank()) {
@@ -59,7 +61,7 @@ public class AiChatController {
                     "消息长度不能超过 " + MAX_MESSAGE_LENGTH + " 个字符"));
         }
 
-        return chatService.streamChat(email, message, conversationId);
+        return chatService.streamChat(email, message, conversationId, modelProvider, modelId);
     }
 
     @Operation(summary = "获取对话列表", description = "获取当前用户所有未删除的对话，按最近更新时间倒序排列")
@@ -216,6 +218,8 @@ public class AiChatController {
         Long knowledgeBaseId = body.get("knowledgeBaseId") != null
                 ? Long.valueOf(body.get("knowledgeBaseId").toString())
                 : null;
+        String modelProvider = (String) body.getOrDefault("provider", null);
+        String modelId = (String) body.getOrDefault("modelId", null);
 
         // 消息非空 + 长度校验
         if (message == null || message.isBlank()) {
@@ -226,7 +230,8 @@ public class AiChatController {
                     "消息长度不能超过 " + MAX_MESSAGE_LENGTH + " 个字符"));
         }
 
-        return chatService.streamChatWithRag(email, message, conversationId, knowledgeBaseId);
+        return chatService.streamChatWithRag(email, message, conversationId, knowledgeBaseId,
+                modelProvider, modelId);
     }
 
     // ==================== 模型管理（Phase 5.3） ====================

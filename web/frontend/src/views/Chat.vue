@@ -1239,9 +1239,11 @@ const handleSend = async (e) => {
 
   // ==================== Phase 2: RAG / 标准模式（原有逻辑） ====================
   const kbId = ragEnabled.value ? selectedKbId.value : null
+  const provider = selectedProvider.value
+  const model = selectedModelId.value
   const callChat = kbId
-    ? (onT, onD, onE) => streamRagChat(msg, convId, kbId, onT, onD, onE)
-    : (onT, onD, onE) => streamChat(msg, convId, onT, onD, onE)
+    ? (onT, onD, onE) => streamRagChat(msg, convId, kbId, onT, onD, onE, provider, model)
+    : (onT, onD, onE) => streamChat(msg, convId, onT, onD, onE, provider, model)
 
   abortController = callChat(
     (token) => {

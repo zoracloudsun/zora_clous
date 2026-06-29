@@ -44,6 +44,14 @@ public class ChatConversation {
     @Schema(description = "最新摘要 ID（Phase 3.4 长期记忆）")
     private Long summaryId;
 
+    @TableField(value = "model_provider")
+    @Schema(description = "模型提供商（Phase 5.3 多模型支持）", example = "deepseek")
+    private String modelProvider;
+
+    @TableField(value = "model_id")
+    @Schema(description = "模型 ID（Phase 5.3 多模型支持）", example = "deepseek-v4-flash")
+    private String modelId;
+
     public ChatConversation() {
     }
 
@@ -107,4 +115,9 @@ public class ChatConversation {
     public void setSummaryId(Long summaryId) {
         this.summaryId = summaryId;
     }
+
+    public String getModelProvider() { return modelProvider; }
+    public void setModelProvider(String modelProvider) { this.modelProvider = modelProvider; }
+    public String getModelId() { return modelId; }
+    public void setModelId(String modelId) { this.modelId = modelId; }
 }
