@@ -306,7 +306,7 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-          <span v-else class="header-badge">DeepSeek</span>
+          <span v-else class="header-badge">AI 模型</span>
         </div>
       </header>
 
@@ -740,7 +740,7 @@ const selectedProvider = ref('deepseek')
 const selectedModelId = ref('deepseek-v4-flash')
 const currentModelName = computed(() => {
   const found = availableModels.value.find(m => m.provider === selectedProvider.value && m.modelId === selectedModelId.value)
-  return found ? found.name : 'DeepSeek-V3'
+  return found ? found.name : 'AI 大模型'
 })
 async function loadModels() {
   try {

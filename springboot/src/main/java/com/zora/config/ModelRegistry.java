@@ -80,16 +80,20 @@ public class ModelRegistry {
     public ChatModel getChatModel(String provider, String modelId) {
         String key = resolveKey(provider, modelId);
         ChatModel m = chatModels.get(key);
+        // 降级链: 指定模型 → 默认模型 → 第一个可用模型
         if (m == null) m = chatModels.get(defaultProvider + ":" + defaultModel);
-        if (m == null) throw new IllegalStateException("模型不可用: " + key);
+        if (m == null && !chatModels.isEmpty()) m = chatModels.values().iterator().next();
+        if (m == null) throw new IllegalStateException("没有可用的 AI 模型，请检查 ai.providers 配置");
         return m;
     }
 
     public StreamingChatModel getStreamingModel(String provider, String modelId) {
         String key = resolveKey(provider, modelId);
         StreamingChatModel m = streamingModels.get(key);
+        // 降级链: 指定模型 → 默认模型 → 第一个可用模型
         if (m == null) m = streamingModels.get(defaultProvider + ":" + defaultModel);
-        if (m == null) throw new IllegalStateException("流式模型不可用: " + key);
+        if (m == null && !streamingModels.isEmpty()) m = streamingModels.values().iterator().next();
+        if (m == null) throw new IllegalStateException("没有可用的 AI 流式模型，请检查 ai.providers 配置");
         return m;
     }
 

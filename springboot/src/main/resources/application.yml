@@ -126,8 +126,8 @@ ai:
     #   旧域名 https://dashscope.aliyuncs.com 仍可用，但不推荐
     qwen:
       type: openai-compatible
-      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
-      api-key: ${QWEN_API_KEY:}
+      base-url: https://ws-j1l0b67jsrib4m18.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+      api-key: ${QWEN_API_KEY:sk-ws-H.RXMEHIM.WPxo.MEUCIQDquLkD-QFQKTpUHahQ2QQ86gIP3M0lsEbkc6zbJbFLdwIgIBcAIlBcohAc9bMXIYy8-wyeA5N771cam6gWC3fEDok}
       models:
         - id: qwen-plus
           name: 通义千问 Plus

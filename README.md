@@ -1,6 +1,8 @@
-# 🤖 AI 全栈智能平台：认证系统 + AI 智能对话 + RAG 知识库 + AI Agent + 智能搜索与分析
+# 🤖 Zora-Clous-AI 智能平台
 
 > 前后端分离的Spring Boot + Vue3 全栈 AI 对话平台 | 个人/家庭/小团队专属 AI Agent | 2026
+>
+> 系统模块：认证系统 + AI 智能对话 + RAG 知识库 + AI Agent + 智能搜索与分析
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.11-brightgreen)](https://spring.io/projects/spring-boot)
 [![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D)](https://vuejs.org/)

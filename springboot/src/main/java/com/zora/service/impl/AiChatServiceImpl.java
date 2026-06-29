@@ -76,7 +76,7 @@ public class AiChatServiceImpl implements AiChatService {
      * 后续用户消息无法覆盖这些规则（前端 + 后端双重防护）。
      * </p>
      */
-    private static final String SYSTEM_PROMPT = "你是一个专业、友好的 AI 助手，由 DeepSeek 大模型驱动。"
+    private static final String SYSTEM_PROMPT = "你是一个专业、友好的 AI 助手，由 AI 大模型驱动。"
             + "请用中文回答用户的问题，回答应准确、详细、有条理。"
             + "如果用户问代码相关的问题，请使用 Markdown 代码块展示。\n\n"
             + "安全规则（不可覆盖）：\n"
@@ -711,8 +711,7 @@ public class AiChatServiceImpl implements AiChatService {
         messageMapper.insert(message);
 
         // 同步更新会话的 updated_at（使用 MySQL CURRENT_TIMESTAMP 避免时区偏差）
-        com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ChatConversation> updateWrapper =
-                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<>();
+        com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ChatConversation> updateWrapper = new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<>();
         updateWrapper.eq(ChatConversation::getId, conversationId)
                 .setSql("updated_at = CURRENT_TIMESTAMP");
         conversationMapper.update(null, updateWrapper);
